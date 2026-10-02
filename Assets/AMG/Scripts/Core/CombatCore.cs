@@ -11,6 +11,27 @@ namespace AMG
         float TakeDamage(float amount, Vector3 hitPoint);
     }
 
+    /// 頭上にHPバーを出すもの（瘤、雑魚）。HUDが描画する
+    public interface IHealthBarTarget
+    {
+        bool IsAlive { get; }
+        float Hp01 { get; }
+        /// HPバーを表示するワールド座標
+        Vector3 BarAnchor { get; }
+    }
+
+    public static class HealthBars
+    {
+        public static readonly System.Collections.Generic.List<IHealthBarTarget> Targets = new();
+
+        public static void Register(IHealthBarTarget t)
+        {
+            if (!Targets.Contains(t)) Targets.Add(t);
+        }
+
+        public static void Unregister(IHealthBarTarget t) => Targets.Remove(t);
+    }
+
     public static class CombatEvents
     {
         /// プレイヤーの攻撃が何かに当たったとき。引数は実際に通ったダメージ（無効なら0）

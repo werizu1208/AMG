@@ -5,7 +5,7 @@ namespace AMG
 {
     /// ボスが召喚する案山子のような木の雑魚。ぎこちなく跳ねながら近づいて殴る
     [RequireComponent(typeof(CharacterController))]
-    public class Scarecrow : MonoBehaviour, IDamageable
+    public class Scarecrow : MonoBehaviour, IDamageable, IHealthBarTarget
     {
         public static int Alive { get; private set; }
 
@@ -17,6 +17,8 @@ namespace AMG
         public float attackCooldown = 1.3f;
 
         public bool IsAlive => hp > 0f;
+        public float Hp01 => hp / maxHp;
+        public Vector3 BarAnchor => transform.position + Vector3.up * 2.75f;
 
         Transform body;
         CharacterController cc;
@@ -55,8 +57,17 @@ namespace AMG
             hopPhase = Random.Range(0f, 10f);
         }
 
-        void OnEnable() => Alive++;
-        void OnDisable() => Alive--;
+        void OnEnable()
+        {
+            Alive++;
+            HealthBars.Register(this);
+        }
+
+        void OnDisable()
+        {
+            Alive--;
+            HealthBars.Unregister(this);
+        }
 
         void Update()
         {

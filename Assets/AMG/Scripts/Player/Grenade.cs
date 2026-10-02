@@ -8,18 +8,32 @@ namespace AMG
         float damage;
         float radius;
         float fuse;
+        float groundDrag;
+        Rigidbody rb;
+        bool landed;
 
-        public void Init(float damage, float radius, float fuse)
+        public void Init(float damage, float radius, float fuse, float groundDrag)
         {
             this.damage = damage;
             this.radius = radius;
             this.fuse = fuse;
+            this.groundDrag = groundDrag;
+            rb = GetComponent<Rigidbody>();
         }
 
         void Update()
         {
             fuse -= Time.deltaTime;
             if (fuse <= 0f) Explode();
+        }
+
+        /// 最初に何かに触れたら減速を強めて、転がりすぎないようにする（空中は抵抗なし＝予測線どおりに飛ぶ）
+        void OnCollisionEnter(Collision collision)
+        {
+            if (landed || rb == null) return;
+            landed = true;
+            rb.linearDamping = groundDrag;
+            rb.angularDamping = groundDrag;
         }
 
         void Explode()

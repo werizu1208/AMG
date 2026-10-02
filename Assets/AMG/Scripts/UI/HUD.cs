@@ -107,7 +107,7 @@ namespace AMG
             string controls =
                 "WASD 移動　Shift ダッシュ　Space ジャンプ　Ctrl 回避\n" +
                 "右クリック エイム　左クリック 射撃　R リロード　1/2 武器切替\n" +
-                "E グレネード　F 回復キット　Q ウルト　Esc カーソル解放\n\n" +
+                "E 長押しでグレネードを構え、離して投擲　F 回復キット　Q ウルト　Esc カーソル解放\n\n" +
                 "瘤（こぶ）が残っている限り、魔法少女は再生し続ける。\nソロ出撃：HPが0になると即死。";
             GUI.Label(new Rect(0, y + bh + 40 * S, w, 260 * S), controls, center);
         }
@@ -117,6 +117,7 @@ namespace AMG
         void DrawBattle()
         {
             float w = Screen.width, h = Screen.height, s = S;
+            DrawWorldHealthBars(s);
             DrawCrosshair(w * 0.5f, h * 0.5f, s);
 
             // 被弾時に画面の縁を赤く
@@ -137,8 +138,10 @@ namespace AMG
             GUI.Label(right, $"[{weapons.CurrentIndex + 1}] {wpn.name}", labelRight);
             GUI.Label(new Rect(right.x, right.y + 34 * s, right.width, 30 * s), ammo, labelRight);
             string heal = gadgets.IsHealing ? "（回復中）" : "";
+            string grenade = gadgets.GrenadeReady ? "OK" : $"{gadgets.GrenadeCooldownRemaining:0}s";
+            string medkit = gadgets.MedkitReady ? "OK" : $"{gadgets.MedkitCooldownRemaining:0}s";
             GUI.Label(new Rect(right.x, right.y + 68 * s, right.width, 30 * s),
-                $"[E] グレネード ×{gadgets.Grenades}　[F] 回復キット ×{gadgets.Medkits}{heal}", labelRight);
+                $"[E] グレネード {grenade}　[F] 回復キット {medkit}{heal}", labelRight);
 
             // ウルト
             Rect ultRect = new Rect(w * 0.5f - 200 * s, h - 70 * s, 400 * s, 18 * s);
@@ -186,6 +189,35 @@ namespace AMG
             if (boss.IsReviving) status += "　<無敵：再生>";
             if (boss.IsTransforming) status += "　<変異中>";
             GUI.Label(new Rect(bar.x, bar.y + 26 * s, bar.width, 30 * s), status, center);
+        }
+
+        const float WorldBarMaxDistance = 60f;
+        /// HPが減っていない敵は、プレイヤーからこの距離以内のときだけバーを出す
+        const float WorldBarFullHpDistance = 15f;
+
+        /// 瘤・雑魚の頭上HPバー。遠いほど小さく、カメラの後ろにあるものは描かない
+        void DrawWorldHealthBars(float s)
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            Vector3 playerPos = player.transform.position;
+            foreach (var t in HealthBars.Targets)
+            {
+                if (!t.IsAlive) continue;
+                Vector3 anchor = t.BarAnchor;
+                bool damaged = t.Hp01 < 0.999f;
+                if (!damaged && (anchor - playerPos).sqrMagnitude > WorldBarFullHpDistance * WorldBarFullHpDistance) continue;
+
+                Vector3 sp = cam.WorldToScreenPoint(anchor);
+                if (sp.z <= 0.1f || sp.z > WorldBarMaxDistance) continue;
+
+                float scale = Mathf.Lerp(1f, 0.45f, sp.z / WorldBarMaxDistance) * s;
+                float bw = 110f * scale, bh = Mathf.Max(4f, 11f * scale);
+                // IMGUIは上が原点なのでyを反転
+                var r = new Rect(sp.x - bw * 0.5f, Screen.height - sp.y - bh, bw, bh);
+                Fill(new Rect(r.x - 1f, r.y - 1f, r.width + 2f, r.height + 2f), new Color(0f, 0f, 0f, 0.8f));
+                Bar(r, t.Hp01, t is Knot ? new Color(0.95f, 0.65f, 0.15f) : new Color(0.85f, 0.2f, 0.15f));
+            }
         }
 
         void DrawCrosshair(float cx, float cy, float s)

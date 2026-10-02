@@ -4089,8 +4089,8 @@ Transform:
   m_GameObject: {fileID: 286943614}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.72, z: -0.02}
-  m_LocalScale: {x: 0.36, y: 0.22, z: 0.38}
+  m_LocalPosition: {x: 0, y: 1.656, z: -0.07}
+  m_LocalScale: {x: 0.43922165, y: 0.43458718, z: 0.4081542}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1694415233}
@@ -6919,12 +6919,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: edf2f99276550b040a660ce31f901a3c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxGrenades: 3
+  grenadeCooldown: 12
   grenadeDamage: 150
   grenadeRadius: 4.5
   grenadeFuse: 1.4
   throwSpeed: 16
-  maxMedkits: 2
+  grenadeBounciness: 0.15
+  grenadeFriction: 1
+  grenadeGroundDrag: 3
+  arcTimeStep: 0.03
+  arcWidth: 0.05
+  medkitCooldown: 25
   medkitHeal: 50
   medkitDuration: 1.5
 --- !u!114 &458165696
@@ -6979,7 +6984,9 @@ MonoBehaviour:
   aimSpeed: 2.8
   jumpHeight: 1.1
   gravity: -22
-  turnSpeed: 720
+  moveTurnSpeed: 720
+  aimTurnSpeed: 1440
+  faceForwardAfterFire: 0.5
   dodgeSpeed: 13
   dodgeDuration: 0.3
   dodgeCooldown: 0.8

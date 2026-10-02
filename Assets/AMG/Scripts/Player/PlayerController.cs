@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 namespace AMG
 {
-    /// TPS移動：WASD移動（向き基準で前後・横歩き） / Shiftダッシュ / Spaceジャンプ / Ctrl回避 / 右クリックエイム
+    /// TPS移動：WASD移動（カメラ基準。移動のみは移動方向、エイム・射撃中は正面を向く） / Shiftダッシュ / Spaceジャンプ / Ctrl回避 / 右クリックエイム
     [RequireComponent(typeof(CharacterController))]
     public class PlayerController : MonoBehaviour
     {
@@ -13,6 +13,11 @@ namespace AMG
         public float aimSpeed = 2.8f;
         public float jumpHeight = 1.1f;
         public float gravity = -22f;
+
+        [Header("向き")]
+        public float moveTurnSpeed = 720f;    // 移動方向へ向くときの旋回速度（度/秒）
+        public float aimTurnSpeed = 1440f;    // エイム・射撃で正面へ向くときの旋回速度（度/秒）
+        public float faceForwardAfterFire = 0.5f;
 
         [Header("回避")]
         public float dodgeSpeed = 13f;
@@ -36,6 +41,7 @@ namespace AMG
         float dodgeTimer;
         float dodgeCooldownTimer;
         float lastFireTime = -10f;
+        float faceForwardUntil = -10f;
         Vector3 dodgeDir;
 
         void Awake()
@@ -53,6 +59,13 @@ namespace AMG
         public void MarkFired()
         {
             lastFireTime = Time.time;
+            FaceForward(faceForwardAfterFire);
+        }
+
+        /// 一定時間、カメラの正面を向かせる（射撃・投擲など）
+        public void FaceForward(float duration)
+        {
+            faceForwardUntil = Mathf.Max(faceForwardUntil, Time.time + duration);
         }
 
         void Update()
@@ -114,8 +127,28 @@ namespace AMG
             verticalVelocity += gravity * dt;
             cc.Move((horizontal + Vector3.up * verticalVelocity) * dt);
 
-            // 本体は常にカメラの旋回角を向く（カメラは右後方上部に固定）
-            if (active && TPSCamera.I != null) transform.rotation = Quaternion.Euler(0f, TPSCamera.I.Yaw, 0f);
+            if (active) UpdateFacing(moveDir, camFwd, dt);
+        }
+
+        /// エイム中・射撃直後はカメラ正面、移動のみのときは移動方向を向く。回避中・停止中は向きを保つ
+        void UpdateFacing(Vector3 moveDir, Vector3 camFwd, float dt)
+        {
+            Vector3 facing;
+            float turnSpeed;
+            if (IsAiming || Time.time < faceForwardUntil)
+            {
+                facing = camFwd;
+                turnSpeed = aimTurnSpeed;
+            }
+            else if (!IsDodging && moveDir.sqrMagnitude > 0.01f)
+            {
+                facing = moveDir;
+                turnSpeed = moveTurnSpeed;
+            }
+            else return;
+
+            Quaternion target = Quaternion.LookRotation(facing, Vector3.up);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, target, turnSpeed * dt);
         }
     }
 }

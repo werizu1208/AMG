@@ -5,7 +5,7 @@ namespace AMG
 {
     /// 瘤（こぶ）。樹液が脈打つ木の塊。根でボスとつながっている。
     /// 壊すと生っている木が枯れ、根がボスに吸収される
-    public class Knot : MonoBehaviour, IDamageable
+    public class Knot : MonoBehaviour, IDamageable, IHealthBarTarget
     {
         public float maxHp = 350f;
         /// 壊したときに枯れる木（幹・葉）
@@ -13,9 +13,11 @@ namespace AMG
 
         public bool IsAlive => hp > 0f;
         public float Hp01 => hp / maxHp;
+        public Vector3 BarAnchor => new Vector3(transform.position.x, barTopY + 0.5f, transform.position.z);
 
         BossController boss;
         float hp;
+        float barTopY;
         Vector3 baseScale;
         float seed;
 
@@ -24,7 +26,13 @@ namespace AMG
             hp = maxHp;
             baseScale = transform.localScale;
             seed = Random.Range(0f, 10f);
+            // 脈動でバーが揺れないよう、初期の大きさで高さを決めておく
+            var r = GetComponent<Renderer>();
+            barTopY = r != null ? r.bounds.max.y : transform.position.y + 0.5f;
         }
+
+        void OnEnable() => HealthBars.Register(this);
+        void OnDisable() => HealthBars.Unregister(this);
 
         public void Bind(BossController owner)
         {
