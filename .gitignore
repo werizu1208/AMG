@@ -141,3 +141,32 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# ---------- Unity ----------
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# IDEが自動生成するファイル
+.vs/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ビルド成果物
+*.apk
+*.aab
+*.unitypackage
