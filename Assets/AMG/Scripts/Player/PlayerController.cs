@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 namespace AMG
 {
-    /// TPS移動：WASD移動 / Shiftダッシュ / Spaceジャンプ / Ctrl回避 / 右クリックエイム
+    /// TPS移動：WASD移動（向き基準で前後・横歩き） / Shiftダッシュ / Spaceジャンプ / Ctrl回避 / 右クリックエイム
     [RequireComponent(typeof(CharacterController))]
     public class PlayerController : MonoBehaviour
     {
@@ -13,7 +13,6 @@ namespace AMG
         public float aimSpeed = 2.8f;
         public float jumpHeight = 1.1f;
         public float gravity = -22f;
-        public float turnSpeed = 720f;
 
         [Header("回避")]
         public float dodgeSpeed = 13f;
@@ -115,16 +114,8 @@ namespace AMG
             verticalVelocity += gravity * dt;
             cc.Move((horizontal + Vector3.up * verticalVelocity) * dt);
 
-            // 構えている間・撃った直後はカメラの向き、それ以外は移動方向を向く
-            Vector3 face = Vector3.zero;
-            if (active && (IsAiming || recentlyFired)) face = camFwd;
-            else if (horizontal.sqrMagnitude > 0.01f) face = horizontal;
-            face.y = 0f;
-            if (active && face.sqrMagnitude > 0.001f)
-            {
-                var target = Quaternion.LookRotation(face);
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, target, turnSpeed * dt * (IsAiming ? 2f : 1f));
-            }
+            // 本体は常にカメラの旋回角を向く（カメラは右後方上部に固定）
+            if (active && TPSCamera.I != null) transform.rotation = Quaternion.Euler(0f, TPSCamera.I.Yaw, 0f);
         }
     }
 }

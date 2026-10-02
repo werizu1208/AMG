@@ -2515,14 +2515,17 @@ MonoBehaviour:
   target: {fileID: 458165700}
   pivotOffset: {x: 0, y: 1.55, z: 0}
   sensitivity: 0.1
-  distance: 4.2
+  distance: 3.6
   aimDistance: 1.9
-  shoulder: 0.75
+  shoulder: 0.8
   aimShoulder: 0.6
+  height: 0.55
+  aimHeight: 0.25
   fov: 60
   aimFov: 45
-  minPitch: -35
-  maxPitch: 70
+  minPitch: -40
+  maxPitch: 60
+  defaultPitch: 8
   collisionRadius: 0.25
 --- !u!81 &174625138
 AudioListener:
