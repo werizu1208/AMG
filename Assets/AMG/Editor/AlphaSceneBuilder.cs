@@ -278,6 +278,7 @@ namespace AMG.EditorTools
             boss.AddComponent<BossVoice>();
 
             Prim.SetLayerRecursive(boss, Layers.Enemy);
+            BossModelSetup.Setup(boss.transform);   // 本番モデルの差し替え口と筒状の根
             tree.SetActive(false);
         }
 
@@ -286,8 +287,8 @@ namespace AMG.EditorTools
         {
             var girl = Prim.Empty("Girl", boss, Vector3.zero);
             var col = girl.gameObject.AddComponent<CapsuleCollider>();
-            col.center = new Vector3(0f, 1f, 0f);
-            col.height = 2f;
+            col.center = new Vector3(0f, 0.75f, 0f); // 頭は弱点（WeakPoint）として別判定にするため胴体までにする
+            col.height = 1.5f;
             col.radius = 0.4f;
 
             var hips = Prim.Empty("Hips", girl, new Vector3(0f, 0.85f, 0f));
@@ -369,8 +370,8 @@ namespace AMG.EditorTools
         {
             var tree = Prim.Empty("TreeForm", boss, Vector3.zero);
             var col = tree.gameObject.AddComponent<CapsuleCollider>();
-            col.center = new Vector3(0f, 6f, -1.5f);
-            col.radius = 3f;
+            col.center = new Vector3(0f, 6f, -2f); // 正面の顔（弱点）が突き出るように
+            col.radius = 2.5f;
             col.height = 12f;
 
             Prim.Create(PrimitiveType.Cylinder, "Mass", tree, new Vector3(0f, 5f, -2f), new Vector3(5.5f, 5f, 5.5f), m.treeDark);

@@ -14,16 +14,31 @@ namespace AMG
         BossController boss;
 
         float hitMarkerUntil;
+        float weakPointMarkerUntil;
         bool hitEffective;
-        GUIStyle label, labelRight, center, title, subtitle, button;
+        GUIStyle label, labelRight, center, title, subtitle, button, dangerMark;
 
-        void OnEnable() => CombatEvents.PlayerDealtDamage += OnPlayerHit;
-        void OnDisable() => CombatEvents.PlayerDealtDamage -= OnPlayerHit;
+        void OnEnable()
+        {
+            CombatEvents.PlayerDealtDamage += OnPlayerHit;
+            CombatEvents.PlayerHitWeakPoint += OnWeakPointHit;
+        }
+
+        void OnDisable()
+        {
+            CombatEvents.PlayerDealtDamage -= OnPlayerHit;
+            CombatEvents.PlayerHitWeakPoint -= OnWeakPointHit;
+        }
 
         void OnPlayerHit(float dealt)
         {
             hitMarkerUntil = Time.time + 0.12f;
             hitEffective = dealt > 0.01f;
+        }
+
+        void OnWeakPointHit()
+        {
+            weakPointMarkerUntil = Time.time + 0.15f;
         }
 
         void Start()
@@ -60,6 +75,7 @@ namespace AMG
             title = new GUIStyle(center) { fontSize = Mathf.RoundToInt(64 * S), fontStyle = FontStyle.Bold };
             subtitle = new GUIStyle(center) { fontSize = Mathf.RoundToInt(30 * S) };
             button = new GUIStyle(GUI.skin.button) { fontSize = size, wordWrap = true, alignment = TextAnchor.MiddleCenter };
+            dangerMark = new GUIStyle(center) { fontSize = Mathf.RoundToInt(40 * S), fontStyle = FontStyle.Bold };
         }
 
         void OnGUI()
@@ -162,6 +178,7 @@ namespace AMG
                 GUI.Label(new Rect(0, h * 0.58f, w, 40 * s), "スタン！", subtitle);
 
             DrawBoss(w, s);
+            DrawDangerWarning(w, s);
 
             // ボスの片言
             var voice = BossVoice.I;
@@ -188,7 +205,28 @@ namespace AMG
             if (boss.IsRegenerating) status += "　<再生中>";
             if (boss.IsReviving) status += "　<無敵：再生>";
             if (boss.IsTransforming) status += "　<変異中>";
+            if (boss.IsBurrowed) status += "　<地中>";
             GUI.Label(new Rect(bar.x, bar.y + 26 * s, bar.width, 30 * s), status, center);
+        }
+
+        /// ボスの攻撃予兆の範囲内にいる間、画面中央上部（ボスHPバーの下）に点滅する危険マークを出す
+        void DrawDangerWarning(float w, float s)
+        {
+            if (GameManager.I.State != GameState.Playing || !player.IsAlive) return;
+            if (!DangerZone.IsInside(player.transform.position)) return;
+
+            float blink = 0.55f + 0.45f * Mathf.Abs(Mathf.Sin(Time.time * 10f));
+            float size = 46f * s;
+            float cx = w * 0.5f, cy = 175f * s;
+
+            // 赤い菱形に「！」
+            var prev = GUI.matrix;
+            GUIUtility.RotateAroundPivot(45f, new Vector2(cx, cy));
+            Fill(new Rect(cx - size * 0.5f - 3f * s, cy - size * 0.5f - 3f * s, size + 6f * s, size + 6f * s), new Color(0f, 0f, 0f, 0.6f * blink));
+            Fill(new Rect(cx - size * 0.5f, cy - size * 0.5f, size, size), new Color(0.9f, 0.1f, 0.05f, blink));
+            GUI.matrix = prev;
+            GUI.Label(new Rect(cx - size, cy - size * 0.5f, size * 2f, size), "!", dangerMark);
+            GUI.Label(new Rect(0, cy + size * 0.6f, w, 30 * s), "危険：攻撃範囲内", center);
         }
 
         const float WorldBarMaxDistance = 60f;
@@ -231,11 +269,14 @@ namespace AMG
 
             if (Time.time < hitMarkerUntil)
             {
-                var hc = hitEffective ? Color.white : new Color(0.5f, 0.5f, 0.5f);
+                // 弱点に当たったときは赤く、少し大きく
+                bool weak = Time.time < weakPointMarkerUntil;
+                var hc = weak ? new Color(1f, 0.3f, 0.2f) : hitEffective ? Color.white : new Color(0.5f, 0.5f, 0.5f);
+                float size = (weak ? 18f : 14f) * s;
                 var prev = GUI.matrix;
                 GUIUtility.RotateAroundPivot(45f, new Vector2(cx, cy));
-                Fill(new Rect(cx - 14 * s, cy - th * 0.5f, 28 * s, th), hc);
-                Fill(new Rect(cx - th * 0.5f, cy - 14 * s, th, 28 * s), hc);
+                Fill(new Rect(cx - size, cy - th * 0.5f, size * 2f, th), hc);
+                Fill(new Rect(cx - th * 0.5f, cy - size, th, size * 2f), hc);
                 GUI.matrix = prev;
             }
         }

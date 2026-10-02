@@ -82,6 +82,19 @@ namespace AMG
                     chain.Solve();
                     return;
                 }
+                case BossAction.MeleeWindup when !isHammerArm:
+                    // 左の根の腕を大きく引き絞る
+                    desired = pos + (-right * 9f + fwd * 3f + up * 3f) * s;
+                    follow = 10f;
+                    break;
+                case BossAction.MeleeStrike when !isHammerArm:
+                {
+                    // 足元の正面を左から右へ薙ぎ払う
+                    float angle = Mathf.Lerp(-85f, 85f, 1f - (1f - Progress) * (1f - Progress));
+                    chain.target = pos + (Quaternion.AngleAxis(angle, up) * fwd * 8f + up * 1f) * s;
+                    chain.Solve();
+                    return;
+                }
                 case BossAction.RootCast:
                     // 地面に突き刺して根を地中に送る
                     desired = pos + (fwd * 5f + right * side * 2.5f - up * 1.5f) * s;

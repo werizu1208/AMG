@@ -2,7 +2,12 @@ using UnityEngine;
 
 namespace AMG
 {
-    public enum BossAction { None, RootCast, HammerWindup, HammerSlam, LeafCast, Summon, Revive, Transform, Dead }
+    public enum BossAction
+    {
+        None, RootCast, HammerWindup, HammerSlam, LeafCast, Summon, Revive, Transform, Dead,
+        MeleeWindup, MeleeStrike,           // 近接時の格闘（ノックバック）
+        BurrowDown, Underground, Emerge,    // 地中に潜って、下から根とともに突き出す（フェーズ1）
+    }
 
     /// ボスのプロシージャルアニメーションの共通部分。
     /// BossAttacks / BossController が Play と Progress で「今何をしているか」を伝え、リグがIKで体を動かす

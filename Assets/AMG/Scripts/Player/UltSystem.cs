@@ -127,7 +127,7 @@ namespace AMG
             var done = new HashSet<IDamageable>();
             foreach (var col in Physics.OverlapSphere(health.Center, airAuraRadius, Layers.ShootMask, QueryTriggerInteraction.Ignore))
             {
-                var target = col.GetComponentInParent<IDamageable>();
+                var target = WeakPoint.Resolve(col.GetComponentInParent<IDamageable>());
                 if (target != null && target.IsAlive && done.Add(target))
                     target.TakeDamage(airAuraDps * 0.25f, col.ClosestPoint(health.Center));
             }

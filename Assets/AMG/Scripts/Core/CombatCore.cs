@@ -37,6 +37,14 @@ namespace AMG
         /// プレイヤーの攻撃が何かに当たったとき。引数は実際に通ったダメージ（無効なら0）
         public static event System.Action<float> PlayerDealtDamage;
 
+        /// プレイヤーの攻撃がボスの弱点部位に当たったとき（ヒットマーカーの色分け用）
+        public static event System.Action PlayerHitWeakPoint;
+
+        public static void ReportWeakPointHit()
+        {
+            PlayerHitWeakPoint?.Invoke();
+        }
+
         public static void ReportPlayerDamage(float dealt)
         {
             PlayerDealtDamage?.Invoke(Mathf.Max(0f, dealt));

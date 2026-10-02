@@ -30,6 +30,9 @@ namespace AMG
         public float transformDuration = 3f;
         public Transform phase2Point;
 
+        [Header("弱点（少女の頭・巨木の顔）")]
+        public float weakPointMultiplier = 1.2f;
+
         [Header("見た目")]
         public GameObject girlVisual;
         public GameObject phase2Visual;
@@ -45,6 +48,8 @@ namespace AMG
         public bool IsReviving { get; private set; }
         public bool IsTransforming { get; private set; }
         public bool IsDead { get; private set; }
+        /// 地中に潜っている間（攻撃が当たらない）
+        public bool IsBurrowed { get; set; }
         public bool IsAlive => !IsDead;
         public int KnotsTotal => knots.Count;
         public int KnotsRemaining { get; private set; }
@@ -53,6 +58,8 @@ namespace AMG
             Mathf.Min(maxReduction, (KnotsTotal - KnotsRemaining) * reductionPerKnot + (Phase == 2 ? phase2ExtraReduction : 0f));
 
         public BossRigBase Rig => Phase == 2 ? treeRig : girlRig;
+        /// 瘤を壊して大きくなった少女の倍率（初期=1）
+        public float SizeScale => girlBaseScale.y > 0f ? girlVisual.transform.localScale.y / girlBaseScale.y : 1f;
         /// 攻撃の起点（フェーズ2は巨木の正面）
         public Vector3 AttackOrigin => Phase == 2 ? transform.position + transform.forward * 3f : transform.position;
 
@@ -70,6 +77,21 @@ namespace AMG
             voice = GetComponent<BossVoice>();
             girlRig = girlVisual.GetComponent<GirlRig>();
             treeRig = phase2Visual.GetComponent<TreeRig>();
+            AddWeakPoint(girlRig.head, new Vector3(0f, 0.17f, 0f), 0.18f);
+            AddWeakPoint(treeRig.face, Vector3.zero, 0.95f);
+        }
+
+        /// 頭（顔）の骨に弱点の当たり判定を付ける。骨と一緒に動くのでIKの首振りにも追従する
+        void AddWeakPoint(Transform bone, Vector3 localCenter, float radius)
+        {
+            if (bone == null || bone.GetComponentInChildren<WeakPoint>(true) != null) return;
+            var go = new GameObject("WeakPoint");
+            go.layer = Layers.Enemy;
+            go.transform.SetParent(bone, false);
+            var col = go.AddComponent<SphereCollider>();
+            col.center = localCenter;
+            col.radius = radius;
+            go.AddComponent<WeakPoint>().Init(this, weakPointMultiplier);
         }
 
         void Start()
@@ -102,8 +124,7 @@ namespace AMG
             Vector3 to = player.transform.position - transform.position;
             to.y = 0f;
             FaceDirection(to, turnSpeed);
-            float scale = girlVisual.transform.localScale.y / girlBaseScale.y;
-            if (to.magnitude > keepDistance) transform.position += to.normalized * moveSpeed * scale * Time.deltaTime;
+            if (to.magnitude > keepDistance) transform.position += to.normalized * moveSpeed * SizeScale * Time.deltaTime;
         }
 
         public void FaceDirection(Vector3 dir, float degPerSec)
@@ -115,7 +136,7 @@ namespace AMG
 
         public float TakeDamage(float amount, Vector3 hitPoint)
         {
-            if (IsDead || IsReviving || IsTransforming || !GameManager.IsPlaying) return 0f;
+            if (IsDead || IsReviving || IsTransforming || IsBurrowed || !GameManager.IsPlaying) return 0f;
 
             float before = Hp;
             Hp = Mathf.Max(0f, Hp - amount * (1f - DamageReduction));

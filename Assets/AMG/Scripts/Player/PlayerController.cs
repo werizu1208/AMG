@@ -24,6 +24,9 @@ namespace AMG
         public float dodgeDuration = 0.3f;
         public float dodgeCooldown = 0.8f;
 
+        [Header("ノックバック")]
+        public float knockbackDamping = 6f;   // 吹き飛ばされた勢いの減衰（大きいほどすぐ止まる）
+
         /// ウルトなどによる移動速度倍率
         [HideInInspector] public float moveSpeedMultiplier = 1f;
 
@@ -43,6 +46,7 @@ namespace AMG
         float lastFireTime = -10f;
         float faceForwardUntil = -10f;
         Vector3 dodgeDir;
+        Vector3 knockbackVelocity;
 
         void Awake()
         {
@@ -53,6 +57,14 @@ namespace AMG
         public void Stun(float duration)
         {
             stunTimer = Mathf.Max(stunTimer, duration);
+            IsSprinting = false;
+        }
+
+        /// 吹き飛ばす。水平方向の勢いは徐々に減衰し、上向き成分は跳ね上げになる
+        public void Knockback(Vector3 velocity)
+        {
+            knockbackVelocity = new Vector3(velocity.x, 0f, velocity.z);
+            if (velocity.y > 0f) verticalVelocity = velocity.y;
             IsSprinting = false;
         }
 
@@ -121,6 +133,9 @@ namespace AMG
                 float speed = IsAiming ? aimSpeed : IsSprinting ? sprintSpeed : walkSpeed;
                 horizontal = moveDir * speed * moveSpeedMultiplier;
             }
+
+            horizontal += knockbackVelocity;
+            knockbackVelocity = Vector3.Lerp(knockbackVelocity, Vector3.zero, 1f - Mathf.Exp(-knockbackDamping * dt));
 
             if (cc.isGrounded && verticalVelocity < 0f) verticalVelocity = -2f;
             if (jump && cc.isGrounded && !IsDodging) verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
