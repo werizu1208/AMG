@@ -1151,6 +1151,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   weapons:
   - name: "\u30A2\u30B5\u30EB\u30C8\u30E9\u30A4\u30D5\u30EB"
+    shortName: AR
     damage: 12
     fireRate: 10
     magSize: 30
@@ -1161,6 +1162,7 @@ MonoBehaviour:
     automatic: 1
     infiniteAmmo: 0
   - name: "\u30CF\u30F3\u30C9\u30AC\u30F3"
+    shortName: P
     damage: 28
     fireRate: 4
     magSize: 12
@@ -1175,6 +1177,7 @@ MonoBehaviour:
   debugWeaponEnabled: 1
   debugWeapon:
     name: "\u30C7\u30D0\u30C3\u30B0\u9283"
+    shortName: DEBUG
     damage: 500
     fireRate: 12
     magSize: 999
@@ -2263,7 +2266,7 @@ Transform:
   m_GameObject: {fileID: 119693386}
   serializedVersion: 2
   m_LocalRotation: {x: -0.15276328, y: -0.71974874, z: 0.63598865, w: -0.23268792}
-  m_LocalPosition: {x: 0.19, y: -0.02, z: 0}
+  m_LocalPosition: {x: 0.198, y: -0.02, z: -0.022}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -7522,7 +7525,7 @@ Transform:
   m_GameObject: {fileID: 534292995}
   serializedVersion: 2
   m_LocalRotation: {x: 0.15027413, y: -0.7159173, z: 0.6408783, w: 0.2327125}
-  m_LocalPosition: {x: -0.19, y: -0.02, z: 0}
+  m_LocalPosition: {x: -0.19, y: -0.032, z: 0.04}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -18281,14 +18284,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1253136104}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.72562104, y: -0.012317015, z: -0.021472111, w: -0.68764925}
-  m_LocalPosition: {x: 0.0138, y: 0.0138, z: 0.3215}
+  m_LocalRotation: {x: 0.7055404, y: 0.12997538, z: -0.1708787, w: -0.67536634}
+  m_LocalPosition: {x: 0.016, y: 0.0162, z: 0.3213}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1108872701}
   m_Father: {fileID: 1706488921}
-  m_LocalEulerAnglesHint: {x: -121.048996, y: 81.706, z: -83.162994}
+  m_LocalEulerAnglesHint: {x: -114.691, y: 85.969, z: -82.57599}
 --- !u!114 &1253136106
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -19861,14 +19864,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1376770418}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.7257207, y: 0.012320236, z: 0.02147051, w: -0.687544}
-  m_LocalPosition: {x: -0.0055, y: 0.0506, z: 0.3169}
+  m_LocalRotation: {x: 0.70249677, y: -0.14190565, z: 0.18338503, w: -0.672853}
+  m_LocalPosition: {x: -0.025, y: 0.0424, z: 0.3164}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1123793523}
   m_Father: {fileID: 35411934}
-  m_LocalEulerAnglesHint: {x: -133.195, y: -97.69101, z: 94.174}
+  m_LocalEulerAnglesHint: {x: -116.708, y: -86.51999, z: 83.066}
 --- !u!114 &1376770420
 MonoBehaviour:
   m_ObjectHideFlags: 0

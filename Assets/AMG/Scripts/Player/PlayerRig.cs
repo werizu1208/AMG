@@ -27,24 +27,55 @@ namespace AMG
 
         [Header("歩行")]
         public float hipHeight = 0.95f;
+        [Tooltip("立っているときに腰を下げる量（膝を少し曲げて、脚が伸び切らないようにする）")]
+        public float hipDrop = 0.05f;
+        [Tooltip("全力疾走のときにさらに腰を下げる量")]
+        public float runHipDrop = 0.07f;
         public float footSpacing = 0.12f;
-        public float stepThreshold = 0.3f;
-        public float stepDuration = 0.2f;
-        public float stepHeight = 0.14f;
-        public float stepLead = 0.12f;
+        [Tooltip("1秒あたりの歩数（歩き → 全力疾走）。脚が届かない速さのときは自動で増える")]
+        public float walkCadence = 2.2f;
+        public float sprintCadence = 3.4f;
+        public float maxCadence = 6f;
+        [Tooltip("1歩のうち足が地面についている割合（歩き → 全力疾走）")]
+        [Range(0.2f, 0.8f)] public float walkStanceRatio = 0.6f;
+        [Range(0.2f, 0.8f)] public float sprintStanceRatio = 0.32f;
+        public float stepHeight = 0.12f;
+        public float runStepHeight = 0.25f;
+        [Tooltip("脚の長さに対して、どこまで前後に踏み出してよいか")]
+        [Range(0.5f, 1f)] public float reachMargin = 0.85f;
+        [Tooltip("止まっているとき、足がこれ以上ずれたら（位置・向き）踏み直す")]
+        public float settleDistance = 0.1f;
+        public float settleAngle = 35f;
 
         [Header("姿勢")]
         public float headYawLimit = 70f;
         [Range(0f, 1f)] public float spinePitchFollow = 0.5f;   // 照準の上下を上半身がどれだけ追うか
+        [Tooltip("再生していないときの腕の開き（真下からの角度。45 で Aポーズ、90 で Tポーズ）")]
+        [Range(0f, 90f)] public float restArmAngle = 45f;
 
         PlayerController controller;
         PlayerHealth health;
 
+        const float AnkleHeight = 0.08f;
+        const float MoveThreshold = 0.25f;   // これより遅ければ「止まっている」
+
+        // 足：接地中は planted に固定、振り出し中は swingFrom → swingTo へ弧を描いて移動
         readonly Vector3[] planted = new Vector3[2];
-        readonly Vector3[] stepFrom = new Vector3[2];
-        readonly Vector3[] stepTo = new Vector3[2];
-        readonly float[] stepT = { 1f, 1f };
-        readonly bool[] stepping = new bool[2];
+        readonly float[] plantedYaw = new float[2];
+        readonly bool[] swinging = new bool[2];
+        readonly float[] swingT = new float[2];
+        readonly Vector3[] swingFrom = new Vector3[2];
+        readonly float[] swingFromYaw = new float[2];
+        readonly Vector3[] swingTo = new Vector3[2];
+        readonly bool[] wasSwingPhase = new bool[2];
+
+        /// 歩行周期（0〜1で2歩）。左足は0から、右足は0.5から振り出し始める
+        float gaitPhase;
+        float speed01;        // 全力疾走に対する速さ（0〜1）
+        float moveBlend;      // 止まっている 0 → 動いている 1（なめらかに変化）
+        float stanceRatio = 0.6f;
+        float cadence = 2f;
+        float legLength;
 
         Vector3 lastPos;
         Vector3 velocity;
@@ -59,7 +90,7 @@ namespace AMG
         {
             controller = GetComponentInParent<PlayerController>();
             health = GetComponentInParent<PlayerHealth>();
-            for (int i = 0; i < 2; i++) planted[i] = GroundPoint(FootHome(i));
+            ResetFeet();
             lastPos = Body.position;
             aimDir = Body.forward;
         }
@@ -81,22 +112,42 @@ namespace AMG
             UpdateHead();
         }
 
-        /// 再生していないとき、シーンで立ち姿に見えるように骨を一度だけ整える
-        public void ApplyEditorPose()
+#if UNITY_EDITOR
+        /// シーンを開いたとき・スクリプトの再コンパイル後・Inspectorで値を変えたときに、基本姿勢へ戻す
+        void OnValidate()
+        {
+            UnityEditor.EditorApplication.delayCall += () =>
+            {
+                if (this != null && hips != null && !UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode) ApplyRestPose();
+            };
+        }
+#endif
+
+        /// 再生していないときの基本姿勢（脚はまっすぐ、腕は restArmAngle だけ開く。小銃は背中に背負う）。
+        /// エディタが編集モードで自動的に呼ぶ。再生中はIKがすべて上書きする
+        public void ApplyRestPose()
         {
             controller = GetComponentInParent<PlayerController>();
+            Transform body = Body;
+            Vector3 up = body.up, fwd = body.forward, right = body.right;
+
             hips.localPosition = new Vector3(0f, hipHeight, 0f);
+            hips.localRotation = Quaternion.identity;
             spine.localRotation = Quaternion.identity;
-            for (int i = 0; i < 2; i++)
-            {
-                planted[i] = GroundPoint(FootHome(i));
-                stepping[i] = false;
-            }
-            aimDir = LowReadyDirection();
-            PlaceRifle(aimDir);
-            UpdateArms();
-            UpdateLegs();
-            head.rotation = Quaternion.LookRotation(Body.forward, Vector3.up);
+            chest.localRotation = Quaternion.identity;
+            head.rotation = Quaternion.LookRotation(fwd, up);
+
+            RestPose.Straight(legLUpper, legLLower, footL, -up, fwd);
+            RestPose.Straight(legRUpper, legRLower, footR, -up, fwd);
+            footL.rotation = footR.rotation = Quaternion.LookRotation(fwd, up);
+            RestPose.PlantFeet(hips, footL, body, AnkleHeight);
+
+            RestPose.Straight(armLUpper, armLLower, handL, RestPose.ArmDirection(body, -1f, restArmAngle), -fwd);
+            RestPose.Straight(armRUpper, armRLower, handR, RestPose.ArmDirection(body, 1f, restArmAngle), -fwd);
+
+            // 床尾を右腰の後ろに、銃口を左肩の上へ向けて斜めに背負う
+            Vector3 stock = chest.position - fwd * 0.17f + right * 0.16f - up * 0.4f;
+            rifle.SetPositionAndRotation(stock, Quaternion.LookRotation((up * 0.8f - right * 0.6f).normalized, -fwd));
         }
 
         // ---------- 足 ----------
@@ -111,79 +162,157 @@ namespace AMG
             return p;
         }
 
+        void ResetFeet()
+        {
+            float yaw = Body.eulerAngles.y;
+            for (int i = 0; i < 2; i++)
+            {
+                planted[i] = GroundPoint(FootHome(i));
+                plantedYaw[i] = yaw;
+                swinging[i] = false;
+                wasSwingPhase[i] = false;
+            }
+            gaitPhase = 0f;
+        }
+
+        float LegLength
+        {
+            get
+            {
+                if (legLength <= 0f)
+                    legLength = Vector3.Distance(legLUpper.position, legLLower.position) + Vector3.Distance(legLLower.position, footL.position);
+                return legLength;
+            }
+        }
+
+        /// 今の腰の高さで、足を真下から水平方向にどこまで離せるか（それ以上は脚が伸び切る）
+        float MaxReach()
+        {
+            float h = legLUpper.position.y - (GroundPoint(Body.position).y + AnkleHeight);
+            float l = LegLength * 0.98f;
+            return Mathf.Sqrt(Mathf.Max(0f, l * l - h * h));
+        }
+
+        /// 接地中の足が脚の届かない位置に取り残されないよう、真下からの水平距離を制限する（届かない分は滑らせる）
+        Vector3 ClampToReach(Vector3 p, int i, float reach)
+        {
+            Vector3 home = FootHome(i);
+            Vector3 offset = Flat(p - home);
+            if (offset.magnitude <= reach) return p;
+            Vector3 clamped = home + offset.normalized * reach;
+            clamped.y = p.y;
+            return clamped;
+        }
+
+        bool NeedsSettle(int i)
+        {
+            return Flat(planted[i] - FootHome(i)).magnitude > settleDistance
+                || Mathf.Abs(Mathf.DeltaAngle(plantedYaw[i], Body.eulerAngles.y)) > settleAngle;
+        }
+
+        /// 歩行周期に合わせて左右交互に足を振り出す。接地中の足は地面に固定（滑らない）。
+        /// 歩幅と歩数は速さで変わり、着地点は脚の届く範囲に収める
         void UpdateFeet(float dt)
         {
             bool airborne = !controller.IsGrounded && Body.position.y > GroundPoint(Body.position).y + 0.15f;
             airTuck = Mathf.MoveTowards(airTuck, airborne ? 1f : 0f, dt * 6f);
 
-            for (int i = 0; i < 2; i++)
-            {
-                if (!stepping[i]) continue;
-                stepT[i] += dt / stepDuration;
-                if (stepT[i] >= 1f)
-                {
-                    stepT[i] = 1f;
-                    stepping[i] = false;
-                    planted[i] = stepTo[i];
-                }
-            }
-
             if (airborne)
             {
                 // 空中では足を体についてこさせる（着地した場所から改めて接地する）
-                for (int i = 0; i < 2; i++)
-                {
-                    stepping[i] = false;
-                    planted[i] = FootHome(i);
-                }
+                ResetFeet();
                 return;
             }
 
-            if (stepping[0] || stepping[1]) return;
-            int best = -1;
-            float bestDist = stepThreshold;
+            Vector3 flatVel = Flat(velocity);
+            float speed = flatVel.magnitude;
+            bool moving = speed > MoveThreshold;
+            speed01 = Mathf.Clamp01(speed / Mathf.Max(0.1f, controller.sprintSpeed));
+            moveBlend = Mathf.MoveTowards(moveBlend, moving ? 1f : 0f, dt * 4f);
+            stanceRatio = Mathf.Lerp(walkStanceRatio, sprintStanceRatio, speed01);
+
+            // 着地点の前方距離 = 速さ × 接地割合 ÷ 歩数。これが脚の届く範囲を超えないよう、速いときは歩数を増やす
+            float reach = MaxReach();
+            float maxLanding = Mathf.Max(0.05f, reach * reachMargin);
+            cadence = Mathf.Lerp(walkCadence, sprintCadence, speed01);
+            cadence = Mathf.Min(Mathf.Max(cadence, speed * stanceRatio / maxLanding), maxCadence);
+
+            float cycleRate = cadence * 0.5f;   // 1周期 = 2歩
+            float swingDuration = (1f - stanceRatio) / cycleRate;
+            float stanceDuration = stanceRatio / cycleRate;
+
+            bool settle = !moving && (NeedsSettle(0) || NeedsSettle(1));
+            if (moving || settle || swinging[0] || swinging[1])
+                gaitPhase = Mathf.Repeat(gaitPhase + cycleRate * dt, 1f);
+
             for (int i = 0; i < 2; i++)
             {
-                Vector3 desired = GroundPoint(FootHome(i) + velocity * stepLead);
-                float dist = Vector3.Distance(Flat(planted[i]), Flat(desired));
-                if (dist > bestDist)
+                float p = Mathf.Repeat(gaitPhase + i * 0.5f, 1f);
+                bool swingPhase = p >= stanceRatio;
+                // 周期が振り出しに入った瞬間に足を上げる（止まっていて踏み直しが不要なら上げない）
+                if (swingPhase && !wasSwingPhase[i] && !swinging[i] && (moving || NeedsSettle(i)))
                 {
-                    bestDist = dist;
-                    best = i;
+                    swinging[i] = true;
+                    swingT[i] = 0f;
+                    swingFrom[i] = planted[i];
+                    swingFromYaw[i] = plantedYaw[i];
                 }
+                wasSwingPhase[i] = swingPhase;
+
+                if (swinging[i])
+                {
+                    swingT[i] += dt / swingDuration;
+                    // 着地点は毎フレーム更新（曲がる・止まるに追従）。接地時間の真ん中で体の真下に来る位置へ
+                    float remaining = Mathf.Max(0f, 1f - swingT[i]) * swingDuration;
+                    Vector3 futureHome = FootHome(i) + flatVel * remaining;
+                    Vector3 lead = Vector3.ClampMagnitude(flatVel * (stanceDuration * 0.5f), maxLanding);
+                    swingTo[i] = GroundPoint(futureHome + lead);
+                    if (swingT[i] >= 1f)
+                    {
+                        swinging[i] = false;
+                        planted[i] = swingTo[i];
+                        plantedYaw[i] = Body.eulerAngles.y;
+                    }
+                }
+                else planted[i] = ClampToReach(planted[i], i, reach);
             }
-            if (best < 0) return;
-            stepping[best] = true;
-            stepT[best] = 0f;
-            stepFrom[best] = planted[best];
-            stepTo[best] = GroundPoint(FootHome(best) + velocity * stepLead);
         }
 
         Vector3 FootPosition(int i)
         {
             Vector3 p;
-            if (!stepping[i]) p = planted[i];
+            if (!swinging[i]) p = planted[i];
             else
             {
-                float t = stepT[i] * stepT[i] * (3f - 2f * stepT[i]);
-                p = Vector3.Lerp(stepFrom[i], stepTo[i], t) + Vector3.up * Mathf.Sin(stepT[i] * Mathf.PI) * stepHeight;
+                float t = Mathf.Clamp01(swingT[i]);
+                float s = t * t * (3f - 2f * t);
+                float lift = Mathf.Lerp(stepHeight, runStepHeight, speed01) * Mathf.Lerp(0.5f, 1f, moveBlend);
+                p = Vector3.Lerp(swingFrom[i], swingTo[i], s) + Vector3.up * Mathf.Sin(t * Mathf.PI) * lift;
             }
             // ジャンプ中は膝を曲げて足を引き上げる
             return Vector3.Lerp(p, FootHome(i) + Vector3.up * (0.35f + i * 0.1f), airTuck);
         }
 
+        /// 接地中は着地したときの向きのまま、振り出し中に体の向きへ回す
+        float FootYaw(int i)
+        {
+            if (!swinging[i]) return plantedYaw[i];
+            return Mathf.LerpAngle(swingFromYaw[i], Body.eulerAngles.y, Mathf.Clamp01(swingT[i]));
+        }
+
         void UpdateLegs()
         {
             Vector3 fwd = Body.forward;
-            Vector3 ankle = Vector3.up * 0.08f;
-            SolveLeg(legLUpper, legLLower, footL, FootPosition(0) + ankle, fwd);
-            SolveLeg(legRUpper, legRLower, footR, FootPosition(1) + ankle, fwd);
+            Vector3 ankle = Vector3.up * AnkleHeight;
+            SolveLeg(legLUpper, legLLower, footL, FootPosition(0) + ankle, fwd, FootYaw(0));
+            SolveLeg(legRUpper, legRLower, footR, FootPosition(1) + ankle, fwd, FootYaw(1));
         }
 
-        void SolveLeg(Transform upper, Transform lower, Transform foot, Vector3 target, Vector3 fwd)
+        void SolveLeg(Transform upper, Transform lower, Transform foot, Vector3 target, Vector3 fwd, float yaw)
         {
+            // 膝は常に体の前方へ曲げる
             TwoBoneIK.Solve(upper, lower, foot, target, upper.position + fwd + Vector3.down * 0.3f);
-            foot.rotation = Quaternion.LookRotation(Flat(fwd).normalized, Vector3.up);
+            foot.rotation = Quaternion.Euler(0f, yaw, 0f);
         }
 
         // ---------- 胴体 ----------
@@ -193,10 +322,10 @@ namespace AMG
             float targetCrouch = controller.IsDodging ? 0.28f : controller.IsAiming ? 0.05f : 0f;
             crouch = Mathf.Lerp(crouch, targetCrouch, 12f * dt);
 
-            float bob = 0f;
-            for (int i = 0; i < 2; i++)
-                if (stepping[i]) bob = Mathf.Sin(stepT[i] * Mathf.PI) * 0.035f;
-            hips.localPosition = new Vector3(0f, hipHeight - crouch - bob, 0f);
+            // 1周期（2歩）で腰が2回上下する。速いほど大きく、腰も低くして膝に余裕を持たせる
+            float bob = (0.5f - 0.5f * Mathf.Cos(gaitPhase * Mathf.PI * 4f)) * Mathf.Lerp(0.015f, 0.045f, speed01) * moveBlend;
+            float drop = hipDrop + runHipDrop * speed01 * moveBlend;
+            hips.localPosition = new Vector3(0f, hipHeight - drop - crouch - bob, 0f);
 
             // 照準の上下に合わせて上半身を傾ける（構え中のみ）
             float pitch = 0f;

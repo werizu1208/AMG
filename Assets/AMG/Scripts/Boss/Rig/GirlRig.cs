@@ -34,6 +34,10 @@ namespace AMG
         public float headRollMax = 28f;
         public float headYawLimit = 75f;
 
+        [Header("再生していないときの姿勢")]
+        [Tooltip("腕の開き（真下からの角度。45 で Aポーズ、90 で Tポーズ）")]
+        [Range(0f, 90f)] public float restArmAngle = 45f;
+
         public override Vector3 CastPoint => handL.position;
 
         readonly Vector3[] planted = new Vector3[2];
@@ -55,21 +59,39 @@ namespace AMG
         float S => transform.lossyScale.y;
         bool IsBurrowing => Action == BossAction.BurrowDown || Action == BossAction.Underground;
 
-        /// 再生していないとき、シーンで立ち姿に見えるように骨を一度だけ整える（実行中はIKが上書きする）
-        public void ApplyEditorPose()
+#if UNITY_EDITOR
+        /// シーンを開いたとき・スクリプトの再コンパイル後・Inspectorで値を変えたときに、基本姿勢へ戻す
+        void OnValidate()
         {
-            hips.localPosition = new Vector3(0f, hipHeight, 0f);
-            spine.localRotation = Quaternion.identity;
-            for (int i = 0; i < 2; i++)
+            UnityEditor.EditorApplication.delayCall += () =>
             {
-                planted[i] = GroundPoint(FootHome(i));
-                stepping[i] = false;
-            }
-            leftHandTarget = handL.position;
-            Vector3 grip = UpdateLog(0f);   // 倒木は非表示、右手は垂れ下がる位置
-            UpdateArms(grip, 1f);
-            UpdateLegs();
-            head.rotation = Quaternion.LookRotation(transform.forward, Vector3.up);
+                if (this != null && hips != null && !UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode) ApplyRestPose();
+            };
+        }
+#endif
+
+        /// 再生していないときの基本姿勢（脚はまっすぐ、腕は restArmAngle だけ開く。倒木は隠す）。
+        /// エディタが編集モードで自動的に呼ぶ。再生中はIKがすべて上書きする
+        public void ApplyRestPose()
+        {
+            Transform body = transform;
+            Vector3 up = body.up, fwd = body.forward;
+
+            hips.localPosition = new Vector3(0f, hipHeight, 0f);
+            hips.localRotation = Quaternion.identity;
+            spine.localRotation = Quaternion.identity;
+            head.rotation = Quaternion.LookRotation(fwd, up);
+
+            RestPose.Straight(legLUpper, legLLower, footL, -up, fwd);
+            RestPose.Straight(legRUpper, legRLower, footR, -up, fwd);
+            footL.rotation = footR.rotation = Quaternion.LookRotation(fwd, up);
+            RestPose.PlantFeet(hips, footL, body, 0.05f * S);
+
+            RestPose.Straight(armLUpper, armLLower, handL, RestPose.ArmDirection(body, -1f, restArmAngle), -fwd);
+            RestPose.Straight(armRUpper, armRLower, handR, RestPose.ArmDirection(body, 1f, restArmAngle), -fwd);
+
+            logGrowth = 0f;
+            if (log != null && log.gameObject.activeSelf) log.gameObject.SetActive(false);
         }
 
         void Start()

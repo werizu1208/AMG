@@ -57,8 +57,7 @@ namespace AMG.EditorTools
             int materials = AssetDatabase.IsValidFolder(ModelDir) ? BossModelSetup.CreateMaterials(ModelDir) : 0;
             int assigned = AssignModels(visual);
 
-            Physics.SyncTransforms();
-            rig.ApplyEditorPose();
+            rig.ApplyRestPose();
             foreach (var slot in visual.GetComponentsInChildren<VisualSlot>(true))
             {
                 slot.enabled = false;

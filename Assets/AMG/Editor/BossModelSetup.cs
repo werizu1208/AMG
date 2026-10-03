@@ -217,14 +217,13 @@ namespace AMG.EditorTools
             return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
-        /// 再生していないときのシーンで、少女が立ち姿に見えるようにする
+        /// 再生していないときのシーンで、少女を基本姿勢（Aポーズ）にする
         static void ApplyEditorPose(BossController boss)
         {
             var rig = boss.girlVisual.GetComponent<GirlRig>();
             if (rig == null) return;
-            Undo.RegisterFullObjectHierarchyUndo(rig.gameObject, "立ち姿にする");
-            Physics.SyncTransforms();
-            rig.ApplyEditorPose();
+            Undo.RegisterFullObjectHierarchyUndo(rig.gameObject, "基本姿勢にする");
+            rig.ApplyRestPose();
             // 瘤を壊したときに巻きつく根は、ゲーム開始時と同じく隠しておく
             foreach (var wrap in boss.rootWraps)
                 if (wrap != null) wrap.SetActive(false);
