@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2df4575dac4d2fb4ba008fb60a7bdf0e, type: 3}
+  m_Name: Grip_Handgun
+  m_EditorClassIdentifier: 
+  right:
+    holding: 1
+    position: {x: 0.0048546493, y: -0.020550966, z: -0.10549927}
+    rotation: {x: -0, y: 0, z: 270}
+    fingers:
+    - angle: {x: -23, y: -13, z: -44}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: -4, y: -1, z: 2}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 39, y: 0, z: 0}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 13, y: 32, z: 0}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 12, y: -17, z: -26}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    thumb: 25
+    index: 20
+    middle: 85
+    ring: 85
+    pinky: 85
+    version: 1
+  left:
+    holding: 1
+    position: {x: 0.00034112297, y: -0.112718105, z: -0.07782364}
+    rotation: {x: -0, y: 0, z: 191.89186}
+    fingers:
+    - angle: {x: 31, y: -28, z: 0}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 31, y: 0, z: 0}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 36, y: 0, z: 0}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 36, y: 0, z: 0}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 43, y: 0, z: 0}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    thumb: 10
+    index: 70
+    middle: 75
+    ring: 75
+    pinky: 75
+    version: 1

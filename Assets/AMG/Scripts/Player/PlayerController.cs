@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 namespace AMG
 {
-    /// TPS移動：WASD移動（カメラ基準。移動のみは移動方向、エイム・射撃中は正面を向く） / Shiftダッシュ / Spaceジャンプ / Ctrl回避 / 右クリックエイム
+    /// TPS移動：WASD移動（カメラ基準。移動のみは移動方向、エイム・射撃中は正面を向く） / Shiftダッシュ / Spaceジャンプ / Ctrl回避 / Cしゃがみ（切り替え） / 右クリックエイム
     [RequireComponent(typeof(CharacterController))]
     public class PlayerController : MonoBehaviour
     {
@@ -13,6 +13,11 @@ namespace AMG
         public float aimSpeed = 2.8f;
         public float jumpHeight = 1.1f;
         public float gravity = -22f;
+
+        [Header("しゃがみ（Cで切り替え）")]
+        public float crouchSpeed = 2.4f;
+        [Tooltip("しゃがんだときの当たり判定の高さ（立ち姿勢に対する割合）")]
+        public float crouchHeightScale = 0.65f;
 
         [Header("向き")]
         public float moveTurnSpeed = 720f;    // 移動方向へ向くときの旋回速度（度/秒）
@@ -35,6 +40,7 @@ namespace AMG
         public bool IsCombatReady => IsAiming || Time.time < faceForwardUntil;
         public bool IsGrounded => cc != null && cc.isGrounded;
         public bool IsSprinting { get; private set; }
+        public bool IsCrouching { get; private set; }
         public bool IsDodging => dodgeTimer > 0f;
         public bool IsStunned => stunTimer > 0f;
         public float StunRemaining => stunTimer;
@@ -50,11 +56,15 @@ namespace AMG
         float faceForwardUntil = -10f;
         Vector3 dodgeDir;
         Vector3 knockbackVelocity;
+        float standHeight;
+        Vector3 standCenter;
 
         void Awake()
         {
             cc = GetComponent<CharacterController>();
             health = GetComponent<PlayerHealth>();
+            standHeight = cc.height;
+            standCenter = cc.center;
         }
 
         public void Stun(float duration)
@@ -94,7 +104,7 @@ namespace AMG
             var mouse = Mouse.current;
 
             Vector2 input = Vector2.zero;
-            bool jump = false, dodge = false, sprint = false;
+            bool jump = false, dodge = false, sprint = false, crouchToggle = false;
             IsAiming = false;
             if (active && !IsStunned && kb != null && mouse != null)
             {
@@ -106,6 +116,7 @@ namespace AMG
                 jump = kb.spaceKey.wasPressedThisFrame;
                 dodge = kb.leftCtrlKey.wasPressedThisFrame || kb.rightCtrlKey.wasPressedThisFrame;
                 sprint = kb.leftShiftKey.isPressed;
+                crouchToggle = kb.cKey.wasPressedThisFrame;
             }
             input = Vector2.ClampMagnitude(input, 1f);
 
@@ -115,6 +126,12 @@ namespace AMG
 
             bool recentlyFired = Time.time - lastFireTime < 0.35f;
             IsSprinting = sprint && input.y > 0.1f && !IsAiming && !recentlyFired;
+
+            // しゃがみ：Cで切り替え。ダッシュ・ジャンプ・回避で立つ（頭上がふさがっているときは立てない）
+            if (crouchToggle) IsCrouching = !IsCrouching;
+            if (IsCrouching && (IsSprinting || jump || dodge || !active) && CanStand()) IsCrouching = false;
+            if (IsCrouching) { IsSprinting = false; jump = false; }
+            UpdateCrouchCollider(dt);
 
             if (dodge && dodgeCooldownTimer <= 0f && !IsDodging && cc.isGrounded)
             {
@@ -133,7 +150,8 @@ namespace AMG
             }
             else
             {
-                float speed = IsAiming ? aimSpeed : IsSprinting ? sprintSpeed : walkSpeed;
+                float speed = IsAiming ? Mathf.Min(aimSpeed, IsCrouching ? crouchSpeed : aimSpeed)
+                    : IsCrouching ? crouchSpeed : IsSprinting ? sprintSpeed : walkSpeed;
                 horizontal = moveDir * speed * moveSpeedMultiplier;
             }
 
@@ -146,6 +164,27 @@ namespace AMG
             cc.Move((horizontal + Vector3.up * verticalVelocity) * dt);
 
             if (active) UpdateFacing(moveDir, camFwd, dt);
+        }
+
+        /// 当たり判定の高さをしゃがみに合わせる（足元の位置は変えない）
+        void UpdateCrouchCollider(float dt)
+        {
+            if (!IsCrouching && !CanStand()) IsCrouching = true;
+            float target = IsCrouching ? standHeight * crouchHeightScale : standHeight;
+            float h = Mathf.MoveTowards(cc.height, target, standHeight * 4f * dt);
+            if (Mathf.Approximately(h, cc.height)) return;
+            cc.height = h;
+            cc.center = standCenter - Vector3.up * (standHeight - h) * 0.5f;
+        }
+
+        /// 立ち上がれるか（頭上に天井などがないか）
+        bool CanStand()
+        {
+            if (cc.height >= standHeight - 0.01f) return true;
+            float r = cc.radius * 0.95f;
+            Vector3 bottom = transform.position + standCenter - Vector3.up * (standHeight * 0.5f - cc.radius);
+            Vector3 top = bottom + Vector3.up * (standHeight - cc.radius * 2f);
+            return !Physics.CheckCapsule(bottom + Vector3.up * 0.05f, top, r, ~(1 << Layers.Player), QueryTriggerInteraction.Ignore);
         }
 
         /// エイム中・射撃直後はカメラ正面、移動のみのときは移動方向を向く。回避中・停止中は向きを保つ

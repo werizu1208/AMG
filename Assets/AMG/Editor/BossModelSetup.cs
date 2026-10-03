@@ -275,6 +275,7 @@ namespace AMG.EditorTools
         static bool IsPlaceholder(Transform t)
         {
             if (t.childCount > 0) return false;
+            if (t.gameObject.hideFlags != HideFlags.None) return false;   // 編集中のプレビュー（武器の見た目など）
             if (t.GetComponent<MeshRenderer>() == null || t.GetComponent<MeshFilter>() == null) return false;
             if (t.name.StartsWith("RootWrap")) return false;
             return t.GetComponent<Collider>() == null;

@@ -4,8 +4,10 @@ using UnityEngine.InputSystem;
 namespace AMG
 {
     /// 肩越しのTPSカメラ。常にプレイヤーの右後方・上部に固定される。
-    /// マウス左右でプレイヤーごと旋回し、マウス上下は視線の傾きだけを変える（カメラ位置は動かない）。
-    /// 右クリックでエイム（カメラ位置はそのままで、画角だけ狭めてズーム）、壁めり込み防止つき
+    /// マウス左右でプレイヤーごと旋回し、マウス上下ではプレイヤーの頭を中心にカメラが回る（頭は画面の同じ位置に映る）。
+    /// 右クリックでエイム（カメラ位置はそのままで、画角だけ狭めてズーム）、壁めり込み防止つき。
+    /// 位置はプレイヤーの頭の骨を基準にするので、歩いて上下しても、かがんでも、上半身を傾けても、
+    /// 頭は画面の同じ位置に映る（位置合わせはアニメーションが終わった後＝描画直前に行う）
     [DefaultExecutionOrder(-50)] // プレイヤーの移動より先にマウス入力を反映し、本体とカメラの向きがずれないようにする
     [RequireComponent(typeof(Camera))]
     public class TPSCamera : MonoBehaviour
@@ -13,7 +15,10 @@ namespace AMG
         public static TPSCamera I { get; private set; }
 
         public Transform target;
+        [Tooltip("プレイヤーの立ち姿勢での、足元から見た回転の中心の高さ")]
         public Vector3 pivotOffset = new Vector3(0f, 1.55f, 0f);
+        [Tooltip("この骨を追う（空ならプレイヤーの PlayerRig の頭を使う）。頭が画面の同じ位置に映る")]
+        public Transform followBone;
         public float sensitivity = 0.1f;
 
         [Header("位置（プレイヤーから見た右後方・上部）")]
@@ -39,6 +44,8 @@ namespace AMG
         PlayerController player;
         float yaw;
         float pitch;
+        Vector3 boneToPivot;   // 立ち姿勢での「骨 → 回転の中心」（旋回角から見た向き）
+        bool boneOffsetReady;
 
         void Awake()
         {
@@ -53,7 +60,18 @@ namespace AMG
             {
                 yaw = target.eulerAngles.y;
                 player = target.GetComponent<PlayerController>();
+                if (followBone == null)
+                {
+                    var rig = target.GetComponentInChildren<PlayerRig>();
+                    if (rig != null) followBone = rig.head;
+                }
             }
+            Application.onBeforeRender += Follow;
+        }
+
+        void OnDestroy()
+        {
+            Application.onBeforeRender -= Follow;
         }
 
         public void AddRecoil(float up, float side)
@@ -71,7 +89,8 @@ namespace AMG
                 yaw += delta.x;
                 pitch -= delta.y;
             }
-            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+            // 頭を中心に回るので、真上・真下を越えないようにする
+            pitch = Mathf.Clamp(pitch, Mathf.Max(minPitch, -85f), Mathf.Min(maxPitch, 85f));
         }
 
         void LateUpdate()
@@ -81,14 +100,44 @@ namespace AMG
             bool aiming = player != null && player.IsAiming;
             float k = 1f - Mathf.Exp(-14f * Time.deltaTime);
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, aiming ? aimFov : fov, k);
-
-            // 位置は旋回角だけで決める（上下を向いても、エイムしても、カメラは右後方上部に留まる）
-            Quaternion yawRot = Quaternion.Euler(0f, yaw, 0f);
-            Vector3 pivot = target.position + pivotOffset;
-            Vector3 shoulderPos = Cast(pivot, pivot + yawRot * new Vector3(shoulder, height, 0f));
-            Vector3 pos = Cast(shoulderPos, shoulderPos + yawRot * Vector3.back * distance);
-            transform.SetPositionAndRotation(pos, Quaternion.Euler(pitch, yaw, 0f));
+            Follow();
         }
+
+        /// 体のアニメーション（PlayerRig）が終わった後にもう一度呼ばれ、その時点の頭の位置へ合わせる
+        void Follow()
+        {
+            if (target == null || this == null) return;
+
+            // 頭（骨）を中心に、旋回角と上下の傾きでカメラを回す。
+            // 頭からカメラへのずれを「カメラの向き」で回すので、上下を向いても頭は画面の同じ位置に映る
+            Quaternion yawRot = Quaternion.Euler(0f, yaw, 0f);
+            Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
+            Vector3 center = Center(yawRot, out Vector3 toPivot);
+            Vector3 side = toPivot + new Vector3(shoulder, height, 0f);   // 頭から見た肩の位置（カメラの向きの座標）
+            Vector3 shoulderPos = Cast(center, center + rot * side);
+            Vector3 pos = Cast(shoulderPos, shoulderPos + rot * Vector3.back * distance);
+            transform.SetPositionAndRotation(pos, rot);
+        }
+
+        /// 回転の中心（頭の骨）と、そこから従来の回転の中心（足元＋pivotOffset）へのずれ。
+        /// ずれは最初のフレーム（立ち姿勢）で覚えて固定する
+        Vector3 Center(Quaternion yawRot, out Vector3 toPivot)
+        {
+            Vector3 standing = target.position + pivotOffset;
+            if (followBone == null)
+            {
+                toPivot = Vector3.zero;
+                return standing;
+            }
+            if (!boneOffsetReady)
+            {
+                boneToPivot = Quaternion.Inverse(yawRot) * (standing - followBone.position);
+                boneOffsetReady = true;
+            }
+            toPivot = boneToPivot;
+            return followBone.position;
+        }
+
         Vector3 Cast(Vector3 from, Vector3 to)
         {
             Vector3 d = to - from;

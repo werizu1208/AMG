@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 46f2c7a9b17dffa4284099096a83d35f
+guid: d992edeb2e0d90248ba7ad91b5d0ffaf
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
@@ -7,8 +7,8 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: tripo_material_da9c924f-0cef-4088-b46a-e78e9b31513c
-    second: {fileID: 2100000, guid: 75d01bc613bb3ba41a0ed2660eb2b3b9, type: 2}
+      name: tripo_material_d318e5e0-cb87-4e6c-b493-7848432c72f2
+    second: {fileID: 2100000, guid: e6f243a29c927e9429e3eebfddabf24b, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -38,7 +38,7 @@ ModelImporter:
     isReadable: 0
   meshes:
     lODScreenPercentages: []
-    globalScale: 100
+    globalScale: 1
     meshCompression: 0
     addColliders: 0
     useSRGBMaterialColor: 1
@@ -55,7 +55,7 @@ ModelImporter:
     useFileUnits: 1
     keepQuads: 0
     weldVertices: 1
-    bakeAxisConversion: 0
+    bakeAxisConversion: 1
     preserveHierarchy: 0
     skinWeightsMode: 0
     maxBonesPerVertex: 4

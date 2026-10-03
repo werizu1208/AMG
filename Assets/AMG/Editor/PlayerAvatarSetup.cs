@@ -18,11 +18,11 @@ namespace AMG.EditorTools
             { "Hips", "p_pelvis" }, { "Spine", "p_torso" }, { "Head", "p_head" },
             { "ArmL_Upper", "p_upper_arm" }, { "ArmR_Upper", "p_upper_arm" },
             { "ArmL_Lower", "p_forearm" }, { "ArmR_Lower", "p_forearm" },
-            { "ArmL_End", "p_hand" }, { "ArmR_End", "p_hand" },
+            { "ArmL_End", "p_hand_rigged" }, { "ArmR_End", "p_hand_rigged" },
             { "LegL_Upper", "p_thigh" }, { "LegR_Upper", "p_thigh" },
             { "LegL_Lower", "p_shin" }, { "LegR_Lower", "p_shin" },
             { "LegL_End", "p_boot" }, { "LegR_End", "p_boot" },
-            { "Rifle", "p_rifle" },
+            // 銃は武器ごとに PlayerRig が出す（「A・M・G > 銃のモデルと握り方を設定」）
         };
 
         /// 骨ごとの位置の初期値（胴体はアンテナの分だけ低く整えられるので、頭を少し下げてすき間をなくす）
@@ -138,7 +138,8 @@ namespace AMG.EditorTools
                 slot.replacement = model;
                 slot.positionOffset = PositionDefaults.TryGetValue(slot.name, out var offset) ? offset : Vector3.zero;
                 slot.rotationOffset = Vector3.zero;
-                slot.scale = Vector3.one;
+                // 手は左手用のグローブなので、右手は左右反転する
+                slot.scale = slot.name == "ArmR_End" ? new Vector3(-1f, 1f, 1f) : Vector3.one;
                 EditorUtility.SetDirty(slot);
                 assigned++;
             }

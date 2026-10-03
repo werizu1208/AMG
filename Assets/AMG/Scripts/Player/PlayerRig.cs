@@ -7,9 +7,25 @@ namespace AMG
     /// ・両手は小銃をIKで保持する。構え中（エイム・射撃直後）は画面中央の照準点へ銃口を向け、
     ///   普段は銃口を下げたローレディ姿勢、ダッシュ中は銃を体に引き寄せる
     /// ・上半身は照準の上下に合わせて傾き、回避中はかがむ
+    /// ・銃ごとにモデルと握り方（GripPose：手首の位置・向き、指の曲げ）を持つ。握り方は「A・M・G > 握り方エディタ」で調整する
     [DefaultExecutionOrder(50)] // プレイヤーの移動とカメラの後に姿勢を決める
     public class PlayerRig : MonoBehaviour
     {
+        /// 銃1種類ぶんの見た目と握り方（WeaponSystem の武器と同じ順番）
+        [System.Serializable]
+        public class WeaponVisual
+        {
+            public string label;
+            [Tooltip("銃のモデル（原点＝後端、+Z が銃口方向）")]
+            public GameObject model;
+            [Tooltip("握り方。空なら従来の簡易な持ち方")]
+            public GripPose grip;
+            [Tooltip("構えたとき、胸から見た銃の原点の位置（体の右・上・前、m）")]
+            public Vector3 holdOffset = new Vector3(0.14f, 0.04f, 0.06f);
+            [Tooltip("銃口の位置（銃のローカル座標）。弾道エフェクトの出る場所")]
+            public Vector3 muzzle = new Vector3(0f, 0.03f, 0.9f);
+        }
+
         [Header("骨")]
         public Transform hips;
         public Transform spine;
@@ -25,10 +41,17 @@ namespace AMG
         public float rightHandOnRifle = 0.24f;   // 床尾から右手（グリップ）まで
         public float leftHandOnRifle = 0.50f;    // 床尾から左手（ハンドガード）まで
 
+        [Header("銃ごとの見た目と握り方（WeaponSystem の武器の順番）")]
+        public WeaponVisual[] weaponVisuals = new WeaponVisual[0];
+
         [Header("歩行")]
         public float hipHeight = 0.95f;
         [Tooltip("立っているときに腰を下げる量（膝を少し曲げて、脚が伸び切らないようにする）")]
         public float hipDrop = 0.05f;
+        [Tooltip("しゃがんだときに腰を下げる量（m）")]
+        public float crouchDepth = 0.38f;
+        [Tooltip("しゃがんだときに上半身を前へ傾ける角度（度）")]
+        public float crouchLean = 15f;
         [Tooltip("全力疾走のときにさらに腰を下げる量")]
         public float runHipDrop = 0.07f;
         public float footSpacing = 0.12f;
@@ -55,6 +78,10 @@ namespace AMG
 
         PlayerController controller;
         PlayerHealth health;
+        WeaponSystem weapons;
+        GameObject[] weaponModels = new GameObject[0];
+        int shownWeapon = -1;
+        int previewIndex = -1;   // 握り方エディタで編集中の武器（再生していないとき）
 
         const float AnkleHeight = 0.08f;
         const float MoveThreshold = 0.25f;   // これより遅ければ「止まっている」
@@ -90,6 +117,8 @@ namespace AMG
         {
             controller = GetComponentInParent<PlayerController>();
             health = GetComponentInParent<PlayerHealth>();
+            weapons = GetComponentInParent<WeaponSystem>();
+            EnsureWeaponModels();
             ResetFeet();
             lastPos = Body.position;
             aimDir = Body.forward;
@@ -104,6 +133,7 @@ namespace AMG
             velocity = Vector3.Lerp(velocity, (Body.position - lastPos) / dt, 12f * dt);
             lastPos = Body.position;
 
+            if (CurrentIndex != shownWeapon) ShowWeapon(CurrentIndex);
             UpdateFeet(dt);
             UpdateBody(dt);
             UpdateRifle(dt);
@@ -148,6 +178,92 @@ namespace AMG
             // 床尾を右腰の後ろに、銃口を左肩の上へ向けて斜めに背負う
             Vector3 stock = chest.position - fwd * 0.17f + right * 0.16f - up * 0.4f;
             rifle.SetPositionAndRotation(stock, Quaternion.LookRotation((up * 0.8f - right * 0.6f).normalized, -fwd));
+
+            weapons = GetComponentInParent<WeaponSystem>();
+            EnsureWeaponModels();
+            ShowWeapon(CurrentIndex);
+            FingerRig.For(HandModel(handL))?.Relax();
+            FingerRig.For(HandModel(handR))?.Relax();
+        }
+
+        /// 握り方エディタ用：再生していないときに、指定した武器を正面へ構えた姿勢にする
+        public void PreviewGrip(int index)
+        {
+            previewIndex = index;
+            ApplyRestPose();
+            aimDir = Body.forward;
+            PlaceRifle(aimDir);
+            UpdateArms();
+            head.rotation = Quaternion.LookRotation(Body.forward, Vector3.up);
+        }
+
+        /// 握り方エディタを閉じたとき：通常の基本姿勢に戻す
+        public void EndPreview()
+        {
+            previewIndex = -1;
+            ApplyRestPose();
+        }
+
+        // ---------- 銃の見た目 ----------
+
+        public int CurrentIndex
+        {
+            get
+            {
+                if (previewIndex >= 0) return previewIndex;
+                return weapons != null ? weapons.CurrentIndex : 0;
+            }
+        }
+
+        public WeaponVisual CurrentVisual => CurrentIndex >= 0 && CurrentIndex < weaponVisuals.Length ? weaponVisuals[CurrentIndex] : null;
+
+        /// 銃のモデルを小銃の骨（rifle）の下に用意する。編集中のものはシーンに保存しない
+        void EnsureWeaponModels()
+        {
+            if (rifle == null) return;
+            if (weaponModels.Length != weaponVisuals.Length) weaponModels = new GameObject[weaponVisuals.Length];
+            for (int i = 0; i < weaponVisuals.Length; i++)
+            {
+                string name = "WeaponModel_" + i;
+                if (weaponModels[i] == null)
+                {
+                    var found = rifle.Find(name);
+                    if (found != null)
+                    {
+                        // 再生開始時は、編集中に作った表示用のものを作り直す
+                        if (Application.isPlaying && found.gameObject.hideFlags != HideFlags.None) DestroyImmediate(found.gameObject);
+                        else weaponModels[i] = found.gameObject;
+                    }
+                }
+                if (weaponModels[i] != null || weaponVisuals[i].model == null) continue;
+
+                var go = Instantiate(weaponVisuals[i].model, rifle);
+                go.name = name;
+                go.transform.localPosition = Vector3.zero;
+                go.transform.localRotation = Quaternion.identity;
+                Prim.SetLayerRecursive(go, rifle.gameObject.layer);
+                foreach (var col in go.GetComponentsInChildren<Collider>()) DestroyImmediate(col);
+                if (!Application.isPlaying)
+                    foreach (var t in go.GetComponentsInChildren<Transform>(true)) t.gameObject.hideFlags = HideFlags.HideAndDontSave;
+                go.SetActive(false);
+                weaponModels[i] = go;
+            }
+        }
+
+        void ShowWeapon(int index)
+        {
+            EnsureWeaponModels();
+            for (int i = 0; i < weaponModels.Length; i++)
+                if (weaponModels[i] != null) weaponModels[i].SetActive(i == index);
+            var v = CurrentVisual;
+            if (v != null && weapons != null && weapons.muzzle != null) weapons.muzzle.localPosition = v.muzzle;
+            shownWeapon = index;
+        }
+
+        static GameObject HandModel(Transform hand)
+        {
+            var slot = hand != null ? hand.GetComponent<VisualSlot>() : null;
+            return slot != null ? slot.Instance : null;
         }
 
         // ---------- 足 ----------
@@ -319,7 +435,7 @@ namespace AMG
 
         void UpdateBody(float dt)
         {
-            float targetCrouch = controller.IsDodging ? 0.28f : controller.IsAiming ? 0.05f : 0f;
+            float targetCrouch = controller.IsCrouching ? crouchDepth : controller.IsDodging ? 0.28f : controller.IsAiming ? 0.05f : 0f;
             crouch = Mathf.Lerp(crouch, targetCrouch, 12f * dt);
 
             // 1周期（2歩）で腰が2回上下する。速いほど大きく、腰も低くして膝に余裕を持たせる
@@ -334,6 +450,9 @@ namespace AMG
 
             Vector3 localVel = Body.InverseTransformDirection(velocity);
             float lean = Mathf.Clamp(localVel.z * 1.5f, -6f, 12f) + (controller.IsDodging ? 20f : 0f);
+            // しゃがみ：腰の下がり具合に合わせて上半身を前へ傾ける
+            if (controller.IsCrouching && crouchDepth > 0.001f)
+                lean += crouchLean * Mathf.Clamp01(crouch / crouchDepth);
             float side = Mathf.Clamp(-localVel.x * 2f, -8f, 8f);
             Quaternion target = Quaternion.Euler(lean + pitch, 0f, side);
             if (controller.IsStunned)
@@ -346,7 +465,11 @@ namespace AMG
 
         Vector3 LowReadyDirection() => (Body.forward * 0.75f - Vector3.up * 0.65f - Body.right * 0.15f).normalized;
 
-        Vector3 StockPosition() => chest.position + Body.right * 0.14f + Vector3.up * 0.04f + Body.forward * 0.06f;
+        Vector3 StockPosition()
+        {
+            Vector3 o = CurrentVisual != null ? CurrentVisual.holdOffset : new Vector3(0.14f, 0.04f, 0.06f);
+            return chest.position + Body.right * o.x + Vector3.up * o.y + Body.forward * o.z;
+        }
 
         void UpdateRifle(float dt)
         {
@@ -381,6 +504,14 @@ namespace AMG
 
         void UpdateArms()
         {
+            var grip = CurrentVisual != null ? CurrentVisual.grip : null;
+            if (grip != null)
+            {
+                SolveHand(armRUpper, armRLower, handR, grip.right, 1f);
+                SolveHand(armLUpper, armLLower, handL, grip.left, -1f);
+                return;
+            }
+
             Vector3 right = Body.right;
             Vector3 down = -rifle.up;
             Vector3 rightGrip = rifle.position + rifle.forward * rightHandOnRifle + down * 0.06f;
@@ -388,6 +519,25 @@ namespace AMG
             // 肘は下・外へ
             TwoBoneIK.Solve(armRUpper, armRLower, handR, rightGrip, chest.position + right * 0.5f + Vector3.down * 0.6f);
             TwoBoneIK.Solve(armLUpper, armLLower, handL, leftGrip, chest.position - right * 0.45f + Vector3.down * 0.6f);
+        }
+
+        /// 握り方どおりに、手首を銃の決まった位置・向きへ合わせ、指を曲げる。持たない手は体の横へ下ろす
+        void SolveHand(Transform upper, Transform lower, Transform hand, GripPose.HandGrip g, float side)
+        {
+            Vector3 right = Body.right;
+            Vector3 pole = chest.position + right * side * 0.5f + Vector3.down * 0.6f;
+            var fingers = FingerRig.For(HandModel(hand));
+            if (g.holding)
+            {
+                TwoBoneIK.Solve(upper, lower, hand, rifle.TransformPoint(g.position), pole);
+                hand.rotation = rifle.rotation * Quaternion.Euler(g.rotation);
+                if (fingers != null) fingers.Apply(g);
+            }
+            else
+            {
+                TwoBoneIK.Solve(upper, lower, hand, chest.position + right * side * 0.24f + Vector3.down * 0.55f + Body.forward * 0.03f, pole);
+                if (fingers != null) fingers.Relax();
+            }
         }
 
         // ---------- 首 ----------

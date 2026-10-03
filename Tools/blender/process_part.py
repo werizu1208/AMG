@@ -51,6 +51,8 @@ PARTS = {
     "p_shin":      dict(kind="limb", length=0.45, root="top", tris=10000, tex=1024),
     "p_boot":      dict(kind="upright", height=0.22, pivot=0.60, tris=10000, tex=1024, yaw=90),  # 横向きの画像なので、つま先を正面へ回す
     "p_rifle":     dict(kind="limb", length=0.90, root="left", tris=30000, tex=2048),  # 原点＝床尾、銃口が前方
+    # 銃（真横の画像から作るので、主軸は推定せず横方向に固定する）。原点＝後端、銃口が前方
+    "p_pistol":    dict(kind="limb", length=0.24, root="left", axis="x", tris=25000, tex=2048),
 }
 
 
@@ -267,6 +269,8 @@ def normalize(obj, cfg):
         cov = np.cov((verts - center).T)
         w, vecs = np.linalg.eigh(cov)
         axis = Vector(vecs[:, np.argmax(w)]).normalized()
+        if cfg.get("axis") == "x":
+            axis = Vector((1.0, 0.0, 0.0))
         # 付け根 → 先端の向きにそろえる（top：下向き / bottom：上向き / left：右向き / right：左向き）
         root_side = cfg["root"]
         if root_side in ("top", "bottom"):

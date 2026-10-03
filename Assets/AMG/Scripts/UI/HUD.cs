@@ -128,7 +128,7 @@ namespace AMG
                 gm.BeginBattle(UltType.HumanWisdom);
 
             string controls =
-                "WASD 移動　Shift ダッシュ　Space ジャンプ　Ctrl 回避\n" +
+                "WASD 移動　Shift ダッシュ　Space ジャンプ　Ctrl 回避　C しゃがみ\n" +
                 "右クリック エイム　左クリック 射撃　R リロード　1/2 武器切替\n" +
                 "E 長押しでグレネードを構え、離して投擲　F 回復キット　Q ウルト　Esc カーソル解放\n\n" +
                 "瘤（こぶ）が残っている限り、魔法少女は再生し続ける。\nソロ出撃：HPが0になると即死。";

@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2df4575dac4d2fb4ba008fb60a7bdf0e, type: 3}
+  m_Name: Grip_AssaultRifle
+  m_EditorClassIdentifier: 
+  right:
+    holding: 1
+    position: {x: 0.004794553, y: -0.06465948, z: 0.10628891}
+    rotation: {x: -0, y: 0, z: 270}
+    fingers:
+    - angle: {x: -20, y: -24, z: -46}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: -6, y: -24, z: -11}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 33, y: -30, z: 16}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 34, y: 25, z: 1}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 11, y: -45, z: -33}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    thumb: 14
+    index: 1
+    middle: -30
+    ring: 3
+    pinky: 47
+    version: 1
+  left:
+    holding: 1
+    position: {x: -0.07285517, y: -0.07619619, z: 0.38430023}
+    rotation: {x: 0.0000017075473, y: 20.000006, z: 85.381165}
+    fingers:
+    - angle: {x: 8, y: -13, z: 6}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 60, y: 0, z: 0}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 65, y: 0, z: 0}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 65, y: 0, z: 0}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    - angle: {x: 65, y: 0, z: 0}
+      joints:
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+      - {x: 0, y: 0, z: 0}
+    thumb: -0
+    index: 60
+    middle: 65
+    ring: 65
+    pinky: 65
+    version: 1
