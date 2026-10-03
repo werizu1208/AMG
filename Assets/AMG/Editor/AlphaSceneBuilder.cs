@@ -352,7 +352,7 @@ namespace AMG.EditorTools
         }
 
         /// 二関節の手足。骨はローカル+Z方向に伸びる（TwoBoneIKの規約）
-        static (Transform upper, Transform lower, Transform end) Limb(string name, Transform parent, Vector3 localPos,
+        internal static (Transform upper, Transform lower, Transform end) Limb(string name, Transform parent, Vector3 localPos,
             float upperLen, float lowerLen, float upperThick, float lowerThick, Material mat)
         {
             var upper = Prim.Empty(name + "_Upper", parent, localPos);
