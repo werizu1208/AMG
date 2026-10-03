@@ -41,6 +41,15 @@ namespace AMG
         public float rightHandOnRifle = 0.24f;   // 床尾から右手（グリップ）まで
         public float leftHandOnRifle = 0.50f;    // 床尾から左手（ハンドガード）まで
 
+        [Header("体の内側の黒い詰め物（パーツのすき間から中が透けないように）")]
+        public bool innerFill = true;
+        [Tooltip("詰め物の太さの倍率。外側のモデルからはみ出すときは小さくする")]
+        public float innerFillScale = 1f;
+        [Tooltip("すねの詰め物を後ろ（ふくらはぎ側）へずらす量（m）。すねの前に黒がはみ出すときに大きくする")]
+        public float shinFillBack = 0.025f;
+        [Tooltip("詰め物のマテリアル。空なら黒いマテリアルを自動で作る")]
+        public Material innerFillMaterial;
+
         [Header("銃ごとの見た目と握り方（WeaponSystem の武器の順番）")]
         public WeaponVisual[] weaponVisuals = new WeaponVisual[0];
 
@@ -119,6 +128,7 @@ namespace AMG
             health = GetComponentInParent<PlayerHealth>();
             weapons = GetComponentInParent<WeaponSystem>();
             EnsureWeaponModels();
+            EnsureInnerFill();
             ResetFeet();
             lastPos = Body.position;
             aimDir = Body.forward;
@@ -184,6 +194,76 @@ namespace AMG
             ShowWeapon(CurrentIndex);
             FingerRig.For(HandModel(handL))?.Relax();
             FingerRig.For(HandModel(handR))?.Relax();
+            EnsureInnerFill();
+        }
+
+        // ---------- 体の内側の詰め物 ----------
+
+        const string InnerFillName = "InnerFill";
+        static Material defaultInnerMaterial;
+
+        /// 骨ごとに黒いカプセルを入れ、パーツのすき間から体の中（向こう側の面の裏）が見えないようにする。
+        /// 骨の子なのでアニメーションに付いて動く。編集中のものはシーンに保存しない
+        void EnsureInnerFill()
+        {
+            if (hips == null || spine == null || chest == null || head == null) return;
+            float k = innerFillScale;
+            // 腰・胴・首（体の前後方向は少し薄く）
+            Fill(hips, new Vector3(0f, -0.1f, 0f), new Vector3(0f, 0.1f, 0f), 0.13f * k, 0.75f);
+            Fill(spine, Vector3.zero, spine.InverseTransformPoint(chest.position), 0.15f * k, 0.7f);
+            Fill(chest, new Vector3(0f, -0.05f, 0f), chest.InverseTransformPoint(head.position) + new Vector3(0f, 0.06f, 0f), 0.06f * k, 1f);
+            // 腕・脚（骨はローカル +Z 方向に伸びる）
+            Limb(armLUpper, armLLower, 0.05f * k); Limb(armLLower, handL, 0.042f * k);
+            Limb(armRUpper, armRLower, 0.05f * k); Limb(armRLower, handR, 0.042f * k);
+            Limb(legLUpper, legLLower, 0.075f * k); Limb(legLLower, footL, 0.055f * k, shinFillBack);
+            Limb(legRUpper, legRLower, 0.075f * k); Limb(legRLower, footR, 0.055f * k, shinFillBack);
+        }
+
+        /// back：体の後ろ方向へずらす量。作るとき（基本姿勢）の向きで骨のローカルに変換するので、ひざを曲げても骨に付いて動く
+        void Limb(Transform bone, Transform child, float radius, float back = 0f)
+        {
+            if (bone == null || child == null) return;
+            Vector3 shift = bone.InverseTransformDirection(-Body.forward) * back;
+            Fill(bone, shift, bone.InverseTransformPoint(child.position) + shift, radius, 1f);
+        }
+
+        /// bone の下に、ローカル座標 a〜b を結ぶカプセルを置く（すでにあれば作り直さない）
+        void Fill(Transform bone, Vector3 a, Vector3 b, float radius, float depth)
+        {
+            var found = bone.Find(InnerFillName);
+            if (found != null)
+            {
+                // 再生中は作ったものを使い続ける。編集中は太さの変更を反映するため毎回作り直す
+                bool keep = Application.isPlaying && found.gameObject.hideFlags == HideFlags.None;
+                if (keep && innerFill) return;
+                DestroyImmediate(found.gameObject);
+            }
+            if (!innerFill) return;
+
+            Vector3 d = b - a;
+            float len = Mathf.Max(d.magnitude, radius * 2f);
+            var go = Prim.Create(PrimitiveType.Capsule, InnerFillName, bone, (a + b) * 0.5f,
+                new Vector3(radius * 2f, len * 0.5f, radius * 2f * depth), InnerMaterial(), false,
+                Quaternion.FromToRotation(Vector3.up, d.sqrMagnitude > 1e-6f ? d.normalized : Vector3.up));
+            var r = go.GetComponent<MeshRenderer>();
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            if (!Application.isPlaying) go.hideFlags = HideFlags.HideAndDontSave;
+        }
+
+        Material InnerMaterial()
+        {
+            if (innerFillMaterial != null) return innerFillMaterial;
+            if (defaultInnerMaterial == null)
+            {
+                var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+                defaultInnerMaterial = new Material(shader) { name = "InnerFill (黒)", hideFlags = HideFlags.HideAndDontSave };
+                defaultInnerMaterial.SetColor("_BaseColor", Color.black);
+                defaultInnerMaterial.SetColor("_Color", Color.black);
+                defaultInnerMaterial.SetFloat("_Smoothness", 0f);
+                defaultInnerMaterial.SetFloat("_Glossiness", 0f);
+            }
+            return defaultInnerMaterial;
         }
 
         /// 握り方エディタ用：再生していないときに、指定した武器を正面へ構えた姿勢にする

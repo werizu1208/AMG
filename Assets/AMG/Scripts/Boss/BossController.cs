@@ -30,8 +30,28 @@ namespace AMG
         public float transformDuration = 3f;
         public Transform phase2Point;
 
-        [Header("弱点（少女の頭・巨木の顔）")]
+        /// 弱点の当たり判定を出す場所。骨の子として付くので、骨と一緒に動く
+        [System.Serializable]
+        public class WeakPointSpot
+        {
+            [Tooltip("弱点を付ける骨。空なら既定（少女は頭、巨木は顔）")]
+            public Transform bone;
+            [Tooltip("骨から見た弱点の中心（骨のローカル座標・m）")]
+            public Vector3 offset;
+            [Tooltip("弱点の大きさ（球の半径・m）")]
+            public float radius = 0.2f;
+
+            public WeakPointSpot(Vector3 offset, float radius)
+            {
+                this.offset = offset;
+                this.radius = radius;
+            }
+        }
+
+        [Header("弱点（シーンでボスを選ぶと赤い球で表示。再生中に変えてもすぐ反映）")]
         public float weakPointMultiplier = 1.2f;
+        public WeakPointSpot girlWeakPoint = new WeakPointSpot(new Vector3(0f, 0.17f, 0f), 0.18f);
+        public WeakPointSpot treeWeakPoint = new WeakPointSpot(Vector3.zero, 0.95f);
 
         [Header("見た目")]
         public GameObject girlVisual;
@@ -69,6 +89,8 @@ namespace AMG
         GirlRig girlRig;
         TreeRig treeRig;
         Vector3 girlBaseScale;
+        SphereCollider girlWeakCollider;
+        SphereCollider treeWeakCollider;
 
         void Awake()
         {
@@ -77,22 +99,74 @@ namespace AMG
             voice = GetComponent<BossVoice>();
             girlRig = girlVisual.GetComponent<GirlRig>();
             treeRig = phase2Visual.GetComponent<TreeRig>();
-            AddWeakPoint(girlRig.head, new Vector3(0f, 0.17f, 0f), 0.18f);
-            AddWeakPoint(treeRig.face, Vector3.zero, 0.95f);
+            girlWeakCollider = AddWeakPoint(GirlWeakBone(), girlWeakPoint);
+            treeWeakCollider = AddWeakPoint(TreeWeakBone(), treeWeakPoint);
         }
 
-        /// 頭（顔）の骨に弱点の当たり判定を付ける。骨と一緒に動くのでIKの首振りにも追従する
-        void AddWeakPoint(Transform bone, Vector3 localCenter, float radius)
+        Transform GirlWeakBone()
         {
-            if (bone == null || bone.GetComponentInChildren<WeakPoint>(true) != null) return;
+            if (girlWeakPoint.bone != null) return girlWeakPoint.bone;
+            var rig = girlVisual != null ? girlVisual.GetComponent<GirlRig>() : null;
+            return rig != null ? rig.head : null;
+        }
+
+        Transform TreeWeakBone()
+        {
+            if (treeWeakPoint.bone != null) return treeWeakPoint.bone;
+            var rig = phase2Visual != null ? phase2Visual.GetComponent<TreeRig>() : null;
+            return rig != null ? rig.face : null;
+        }
+
+        /// 骨に弱点の当たり判定を付ける。骨と一緒に動くのでIKの首振りにも追従する
+        SphereCollider AddWeakPoint(Transform bone, WeakPointSpot spot)
+        {
+            if (bone == null) return null;
             var go = new GameObject("WeakPoint");
             go.layer = Layers.Enemy;
             go.transform.SetParent(bone, false);
             var col = go.AddComponent<SphereCollider>();
-            col.center = localCenter;
-            col.radius = radius;
+            ApplySpot(col, bone, spot);
             go.AddComponent<WeakPoint>().Init(this, weakPointMultiplier);
+            return col;
         }
+
+        static void ApplySpot(SphereCollider col, Transform bone, WeakPointSpot spot)
+        {
+            if (col == null || bone == null) return;
+            if (col.transform.parent != bone) col.transform.SetParent(bone, false);
+            col.center = spot.offset;
+            col.radius = spot.radius;
+        }
+
+#if UNITY_EDITOR
+        // 再生中にインスペクターで変えたら、すぐ当たり判定へ反映する
+        void OnValidate()
+        {
+            if (!Application.isPlaying) return;
+            ApplySpot(girlWeakCollider, GirlWeakBone(), girlWeakPoint);
+            ApplySpot(treeWeakCollider, TreeWeakBone(), treeWeakPoint);
+            foreach (var col in new[] { girlWeakCollider, treeWeakCollider })
+                if (col != null) col.GetComponent<WeakPoint>().damageMultiplier = weakPointMultiplier;
+        }
+
+        // ボスを選ぶと、弱点の位置と大きさを赤い球で表示する
+        void OnDrawGizmosSelected()
+        {
+            DrawSpot(GirlWeakBone(), girlWeakPoint);
+            DrawSpot(TreeWeakBone(), treeWeakPoint);
+        }
+
+        static void DrawSpot(Transform bone, WeakPointSpot spot)
+        {
+            if (bone == null) return;
+            Vector3 c = bone.TransformPoint(spot.offset);
+            float r = spot.radius * Mathf.Max(bone.lossyScale.x, bone.lossyScale.y, bone.lossyScale.z);
+            Gizmos.color = new Color(1f, 0.15f, 0.1f, 0.35f);
+            Gizmos.DrawSphere(c, r);
+            Gizmos.color = new Color(1f, 0.15f, 0.1f, 1f);
+            Gizmos.DrawWireSphere(c, r);
+        }
+#endif
 
         void Start()
         {
