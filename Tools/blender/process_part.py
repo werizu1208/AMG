@@ -5,7 +5,9 @@
 
 やること:
   1. GLBを読み込み、メッシュを1つにまとめる
-  2. ポリゴンを目標数まで削減（Decimate）
+  2. メッシュを掃除する（重複頂点の結合、つながっていない頂点・面のない辺の削除、穴埋め、面の向きの統一）
+  3. ポリゴンを目標数まで削減（Decimate）し、もう一度掃除する
+  4. 陰影を滑らかにする（30°以上の角だけ硬く残す）
   3. テクスチャを縮小
   4. ゲーム内の実寸・付け根（原点）・向きに合わせる
      - Unityで VisualSlot に入れたとき、オフセット0でそのまま骨に合うようにする
@@ -25,30 +27,30 @@ from mathutils import Matrix, Vector
 #   limb    … 主軸（PCA）に沿って伸びる部品。root は付け根側の端（top=画像の上端 / bottom=下端）
 #   upright … 直立の部品。height に合わせて縮尺し、pivot（下端0〜上端1の割合）を原点にする
 PARTS = {
-    "head":      dict(kind="upright", height=1.00, pivot=0.63, tris=9000, tex=2048),  # 原点＝首の球（上から37%）
-    "torso":     dict(kind="upright", height=0.65, pivot=0.00, tris=6000, tex=2048),  # 原点＝腰側の下端
-    "skirt":     dict(kind="upright", height=0.45, pivot=0.92, tris=7000, tex=2048),  # 原点＝腰（上端付近）
-    "upper_arm": dict(kind="limb", length=0.40, root="top", tris=1500, tex=1024),
-    "forearm":   dict(kind="limb", length=0.40, root="top", tris=1500, tex=1024),
-    "hand":      dict(kind="limb", length=0.18, root="top", tris=2500, tex=1024),
-    "thigh":     dict(kind="limb", length=0.44, root="top", tris=1500, tex=1024),
-    "shin":      dict(kind="limb", length=0.44, root="top", tris=1500, tex=1024),
-    "foot":      dict(kind="upright", height=0.15, pivot=1.00, tris=1500, tex=1024),  # 原点＝足首（上端）
-    "log":       dict(kind="limb", length=6.00, root="bottom", tris=5000, tex=2048),  # 根の側が腕から生える
+    "head":      dict(kind="upright", height=1.00, pivot=0.63, tris=30000, tex=2048),  # 原点＝首の球（上から37%）
+    "torso":     dict(kind="upright", height=0.65, pivot=0.00, tris=20000, tex=2048),  # 原点＝腰側の下端
+    "skirt":     dict(kind="upright", height=0.45, pivot=0.92, tris=25000, tex=2048),  # 原点＝腰（上端付近）
+    "upper_arm": dict(kind="limb", length=0.40, root="top", tris=6000, tex=1024),
+    "forearm":   dict(kind="limb", length=0.40, root="top", tris=6000, tex=1024),
+    "hand":      dict(kind="limb", length=0.18, root="top", tris=8000, tex=1024),
+    "thigh":     dict(kind="limb", length=0.44, root="top", tris=6000, tex=1024),
+    "shin":      dict(kind="limb", length=0.44, root="top", tris=6000, tex=1024),
+    "foot":      dict(kind="upright", height=0.15, pivot=1.00, tris=5000, tex=1024),  # 原点＝足首（上端）
+    "log":       dict(kind="limb", length=6.00, root="bottom", tris=15000, tex=2048),  # 根の側が腕から生える
     # フェーズ2：巨木の怪物
-    "tree_body": dict(kind="upright", height=11.2, pivot=0.00, tris=15000, tex=2048, strip_floaters=True),  # 原点＝根元。空洞が高さ6.5mに来る
-    "tree_face": dict(kind="upright", height=3.20, pivot=0.75, tris=5000, tex=2048),   # 原点＝仮面の中心（髪が下に垂れる）
+    "tree_body": dict(kind="upright", height=11.2, pivot=0.00, tris=40000, tex=2048, strip_floaters=True),  # 原点＝根元。空洞が高さ6.5mに来る
+    "tree_face": dict(kind="upright", height=3.20, pivot=0.75, tris=15000, tex=2048),   # 原点＝仮面の中心（髪が下に垂れる）
     # プレイヤー（特殊部隊員）。ポリゴンは多め
-    "p_head":      dict(kind="upright", height=0.42, pivot=0.00, tris=12000, tex=2048),  # 原点＝首の付け根
-    "p_torso":     dict(kind="upright", height=0.62, pivot=0.00, tris=15000, tex=2048),  # 原点＝腰側の下端
-    "p_pelvis":    dict(kind="upright", height=0.26, pivot=0.80, tris=6000, tex=2048),   # 原点＝腰（上端付近）
-    "p_upper_arm": dict(kind="limb", length=0.30, root="top", tris=4000, tex=1024),
-    "p_forearm":   dict(kind="limb", length=0.28, root="top", tris=4000, tex=1024),
-    "p_hand":      dict(kind="limb", length=0.20, root="top", tris=4000, tex=1024),
-    "p_thigh":     dict(kind="limb", length=0.45, root="top", tris=4000, tex=1024),
-    "p_shin":      dict(kind="limb", length=0.45, root="top", tris=4000, tex=1024),
-    "p_boot":      dict(kind="upright", height=0.22, pivot=0.60, tris=4000, tex=1024, yaw=90),  # 横向きの画像なので、つま先を正面へ回す
-    "p_rifle":     dict(kind="limb", length=0.90, root="left", tris=12000, tex=2048),  # 原点＝床尾、銃口が前方
+    "p_head":      dict(kind="upright", height=0.42, pivot=0.00, tris=30000, tex=2048),  # 原点＝首の付け根
+    "p_torso":     dict(kind="upright", height=0.62, pivot=0.00, tris=40000, tex=2048),  # 原点＝腰側の下端
+    "p_pelvis":    dict(kind="upright", height=0.26, pivot=0.80, tris=15000, tex=2048),   # 原点＝腰（上端付近）
+    "p_upper_arm": dict(kind="limb", length=0.30, root="top", tris=10000, tex=1024),
+    "p_forearm":   dict(kind="limb", length=0.28, root="top", tris=10000, tex=1024),
+    "p_hand":      dict(kind="limb", length=0.20, root="top", tris=10000, tex=1024),
+    "p_thigh":     dict(kind="limb", length=0.45, root="top", tris=10000, tex=1024),
+    "p_shin":      dict(kind="limb", length=0.45, root="top", tris=10000, tex=1024),
+    "p_boot":      dict(kind="upright", height=0.22, pivot=0.60, tris=10000, tex=1024, yaw=90),  # 横向きの画像なので、つま先を正面へ回す
+    "p_rifle":     dict(kind="limb", length=0.90, root="left", tris=30000, tex=2048),  # 原点＝床尾、銃口が前方
 }
 
 
@@ -61,10 +63,13 @@ def main():
     bpy.ops.import_scene.gltf(filepath=src)
 
     obj = join_meshes()
+    clean_mesh(obj, "削減前")
     if cfg.get("strip_floaters"):
         obj = strip_floaters(obj)
     decimate(obj, cfg["tris"])
+    clean_mesh(obj, "削減後")
     normalize(obj, cfg)
+    smooth_shading(obj)
     # テクスチャは FBX の隣の Textures/ に <パーツ名>_basecolor.jpg などで書き出す。
     # マテリアルは Unity 側（メニュー「A・M・G > ステージ1ボスのマテリアルを作成」）で URP Lit として作る
     save_textures(cfg["tex"], os.path.join(os.path.dirname(dst), "Textures"), part)
@@ -78,7 +83,7 @@ def main():
         axis_forward="-Z",
         axis_up="Y",
         bake_space_transform=True,
-        mesh_smooth_type="FACE",
+        mesh_smooth_type="OFF",   # 面ごとのカクカクした陰影ではなく、Blenderで決めた法線をそのまま使う
         path_mode="STRIP",
         embed_textures=False,
     )
@@ -122,8 +127,9 @@ def strip_floaters(obj):
     bpy.ops.mesh.separate(type="LOOSE")
     bpy.ops.object.mode_set(mode="OBJECT")
     parts = [o for o in bpy.context.scene.objects if o.type == "MESH"]
-    big = [o for o in parts if len(o.data.vertices) >= total * 0.005]
-    small = [o for o in parts if len(o.data.vertices) < total * 0.005]
+    # 本体＝全体の10%以上を占めるかたまり（掃除で頂点がつながった後は、ほぼ1つの大きなかたまりになる）
+    big = [o for o in parts if len(o.data.vertices) >= total * 0.1]
+    small = [o for o in parts if len(o.data.vertices) < total * 0.1]
 
     def build_tree(objs):
         cos = [v.co.copy() for o in objs for i, v in enumerate(o.data.vertices) if i % 3 == 0]
@@ -162,6 +168,84 @@ def strip_floaters(obj):
     if len(keep) > 1:
         bpy.ops.object.join()
     return bpy.context.view_layer.objects.active
+
+
+def boundary_edges(obj):
+    """穴の縁（面が1枚しかついていない辺）の数"""
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    n = sum(1 for e in bm.edges if len(e.link_faces) == 1)
+    bm.free()
+    return n
+
+
+def clean_mesh(obj, label):
+    """重複頂点を結合し、つながっていない頂点・面のない辺を削除して、穴をふさぎ、面の向きを外向きにそろえる"""
+    verts = np.array([v.co[:] for v in obj.data.vertices])
+    size = float((verts.max(axis=0) - verts.min(axis=0)).max())
+    before_v = len(obj.data.vertices)
+    before_holes = boundary_edges(obj)
+
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.remove_doubles(threshold=size * 1e-5)
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.dissolve_degenerate(threshold=size * 1e-6)
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True, use_faces=False)
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.fill_holes(sides=0)
+    # 通常の穴埋めでふさげなかった縁は、縁の辺を選んで直接面を張る
+    bpy.ops.mesh.select_all(action="DESELECT")
+    bpy.ops.mesh.select_non_manifold(extend=False, use_wire=False, use_boundary=True,
+                                     use_multi_face=False, use_non_contiguous=False, use_verts=False)
+    try:
+        bpy.ops.mesh.edge_face_add()
+    except RuntimeError:
+        pass
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    # それでも残った穴は、縁の周りの面を消して大きな穴にしてから、もう一度ふさぐ
+    for _ in range(3):
+        if boundary_edges(obj) == 0:
+            break
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="DESELECT")
+        bpy.ops.mesh.select_non_manifold(extend=False, use_wire=True, use_boundary=True,
+                                         use_multi_face=True, use_non_contiguous=False, use_verts=True)
+        bpy.ops.mesh.select_more()
+        bpy.ops.mesh.delete(type="FACE")
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True, use_faces=False)
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.mesh.fill_holes(sides=0)
+        bpy.ops.object.mode_set(mode="OBJECT")
+
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.normals_make_consistent(inside=False)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    print(f"[A・M・G] 掃除（{label}）：頂点 {before_v} → {len(obj.data.vertices)}、"
+          f"穴の縁の辺 {before_holes} → {boundary_edges(obj)}")
+
+
+def smooth_shading(obj, angle_deg=30.0):
+    """滑らかな陰影にする。角度のきつい折れ目だけ硬い陰影を残す"""
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    if hasattr(bpy.ops.object, "shade_smooth_by_angle"):
+        bpy.ops.object.shade_smooth_by_angle(angle=math.radians(angle_deg))
+    else:
+        bpy.ops.object.shade_smooth()
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="DESELECT")
+        bpy.ops.mesh.edges_select_sharp(sharpness=math.radians(angle_deg))
+        bpy.ops.mesh.mark_sharp()
+        bpy.ops.object.mode_set(mode="OBJECT")
 
 
 def decimate(obj, target_tris):
