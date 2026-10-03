@@ -121,20 +121,23 @@ namespace AMG.EditorTools
         }
 
         /// Textures/ の <パーツ名>_basecolor.jpg・_normal.jpg から URP Lit のマテリアルを作り、各FBXのマテリアルを置き換える
-        static int CreateStage1Materials()
+        static int CreateStage1Materials() => CreateMaterials(Stage1ModelDir);
+
+        /// modelDir の各FBXに、Textures/ のテクスチャから作った URP Lit のマテリアルを割り当てる
+        internal static int CreateMaterials(string modelDir)
         {
             AssetDatabase.Refresh();
-            string matDir = Stage1ModelDir + "/Materials";
-            if (!AssetDatabase.IsValidFolder(matDir)) AssetDatabase.CreateFolder(Stage1ModelDir, "Materials");
+            string matDir = modelDir + "/Materials";
+            if (!AssetDatabase.IsValidFolder(matDir)) AssetDatabase.CreateFolder(modelDir, "Materials");
             var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
 
             int count = 0;
-            foreach (var file in System.IO.Directory.GetFiles(Stage1ModelDir, "*.fbx"))
+            foreach (var file in System.IO.Directory.GetFiles(modelDir, "*.fbx"))
             {
                 string path = file.Replace('\\', '/');
                 string part = System.IO.Path.GetFileNameWithoutExtension(path);
-                var baseMap = LoadTexture($"{Stage1ModelDir}/Textures/{part}_basecolor.jpg", false);
-                var normalMap = LoadTexture($"{Stage1ModelDir}/Textures/{part}_normal.jpg", true);
+                var baseMap = LoadTexture($"{modelDir}/Textures/{part}_basecolor.jpg", false);
+                var normalMap = LoadTexture($"{modelDir}/Textures/{part}_normal.jpg", true);
 
                 string matPath = $"{matDir}/{part}.mat";
                 var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
@@ -202,7 +205,7 @@ namespace AMG.EditorTools
             }
         }
 
-        static Texture2D LoadTexture(string path, bool normalMap)
+        internal static Texture2D LoadTexture(string path, bool normalMap)
         {
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
             if (importer == null) return null;

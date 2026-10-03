@@ -38,6 +38,17 @@ PARTS = {
     # フェーズ2：巨木の怪物
     "tree_body": dict(kind="upright", height=11.2, pivot=0.00, tris=15000, tex=2048, strip_floaters=True),  # 原点＝根元。空洞が高さ6.5mに来る
     "tree_face": dict(kind="upright", height=3.20, pivot=0.75, tris=5000, tex=2048),   # 原点＝仮面の中心（髪が下に垂れる）
+    # プレイヤー（特殊部隊員）。ポリゴンは多め
+    "p_head":      dict(kind="upright", height=0.42, pivot=0.00, tris=12000, tex=2048),  # 原点＝首の付け根
+    "p_torso":     dict(kind="upright", height=0.62, pivot=0.00, tris=15000, tex=2048),  # 原点＝腰側の下端
+    "p_pelvis":    dict(kind="upright", height=0.26, pivot=0.80, tris=6000, tex=2048),   # 原点＝腰（上端付近）
+    "p_upper_arm": dict(kind="limb", length=0.30, root="top", tris=4000, tex=1024),
+    "p_forearm":   dict(kind="limb", length=0.28, root="top", tris=4000, tex=1024),
+    "p_hand":      dict(kind="limb", length=0.20, root="top", tris=4000, tex=1024),
+    "p_thigh":     dict(kind="limb", length=0.45, root="top", tris=4000, tex=1024),
+    "p_shin":      dict(kind="limb", length=0.45, root="top", tris=4000, tex=1024),
+    "p_boot":      dict(kind="upright", height=0.22, pivot=0.60, tris=4000, tex=1024, yaw=90),  # 横向きの画像なので、つま先を正面へ回す
+    "p_rifle":     dict(kind="limb", length=0.90, root="left", tris=12000, tex=2048),  # 原点＝床尾、銃口が前方
 }
 
 
@@ -172,9 +183,12 @@ def normalize(obj, cfg):
         cov = np.cov((verts - center).T)
         w, vecs = np.linalg.eigh(cov)
         axis = Vector(vecs[:, np.argmax(w)]).normalized()
-        # 付け根 → 先端の向きにそろえる（top：下向き / bottom：上向き）
-        want_down = cfg["root"] == "top"
-        if (axis.z < 0) != want_down:
+        # 付け根 → 先端の向きにそろえる（top：下向き / bottom：上向き / left：右向き / right：左向き）
+        root_side = cfg["root"]
+        if root_side in ("top", "bottom"):
+            if (axis.z < 0) != (root_side == "top"):
+                axis = -axis
+        elif (axis.x > 0) != (root_side == "left"):
             axis = -axis
         proj = (verts - center) @ np.array(axis[:])
         root = Vector(center) + axis * float(proj.min())
@@ -188,6 +202,8 @@ def normalize(obj, cfg):
         scale = cfg["height"] / height
         pivot = Vector(((mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, mn[2] + cfg["pivot"] * height))
         m = Matrix.Scale(scale, 4) @ Matrix.Translation(-pivot)
+    if cfg.get("yaw"):
+        m = Matrix.Rotation(math.radians(cfg["yaw"]), 4, "Z") @ m
     obj.data.transform(m)
     obj.data.update()
 

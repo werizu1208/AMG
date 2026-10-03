@@ -31,6 +31,9 @@ namespace AMG
         [HideInInspector] public float moveSpeedMultiplier = 1f;
 
         public bool IsAiming { get; private set; }
+        /// 銃を構えている（エイム中・射撃や投擲の直後）。アバターの銃の向きに使う
+        public bool IsCombatReady => IsAiming || Time.time < faceForwardUntil;
+        public bool IsGrounded => cc != null && cc.isGrounded;
         public bool IsSprinting { get; private set; }
         public bool IsDodging => dodgeTimer > 0f;
         public bool IsStunned => stunTimer > 0f;
