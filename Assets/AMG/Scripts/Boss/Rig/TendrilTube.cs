@@ -14,6 +14,9 @@ namespace AMG
         [Tooltip("負の値なら仮の形状の太さから自動で決める")]
         public float baseRadius = -1f;
         public float tipRadius = -1f;
+        [Tooltip("先端を閉じる円錐の長さ。負の値なら先端の太さ×tipLengthScale")]
+        public float tipLength = -1f;
+        public float tipLengthScale = 4f;
         public int sides = 10;
         public int subdivisions = 4;      // 関節と関節の間を何分割するか
         public float textureLength = 1.5f;
@@ -37,6 +40,7 @@ namespace AMG
             var lastKnuckle = joints[joints.Length - 1].Find("Knuckle");
             if (baseRadius < 0f) baseRadius = firstKnuckle != null ? firstKnuckle.localScale.x / 2.2f : 0.4f;
             if (tipRadius < 0f) tipRadius = lastKnuckle != null ? lastKnuckle.localScale.x / 2.2f : 0.1f;
+            if (tipLength < 0f) tipLength = tipRadius * tipLengthScale;
             if (material == null)
             {
                 var r = joints[0].GetComponentInChildren<Renderer>(true);
@@ -56,13 +60,15 @@ namespace AMG
 
             int rings = (joints.Length - 1) * subdivisions + 1;
             points = new Vector3[rings];
-            vertices = new Vector3[rings * (sides + 1)];
+            // 筒の輪 + 先端の円錐（法線を変えるため最後の輪を複製した底面の輪と、頂点の輪）
+            vertices = new Vector3[(rings + 2) * (sides + 1)];
             normals = new Vector3[vertices.Length];
             uvs = new Vector2[vertices.Length];
-            var tris = new int[(rings - 1) * sides * 6];
+            var tris = new int[rings * sides * 6];
             int t = 0;
-            for (int i = 0; i < rings - 1; i++)
+            for (int i = 0; i < rings + 1; i++)
             {
+                if (i == rings - 1) continue;   // 筒の最後の輪と円錐の底面の輪の間は面を張らない
                 for (int j = 0; j < sides; j++)
                 {
                     int a = i * (sides + 1) + j, b = a + sides + 1;
@@ -127,6 +133,28 @@ namespace AMG
                     uvs[v] = new Vector2(j / (float)sides, length / textureLength);
                 }
             }
+
+            // 先端を円錐で閉じて、筒の裏側が見えないようにする
+            {
+                Vector3 binormal = Vector3.Cross(tangent, normal);
+                Vector3 tipBase = points[rings - 1];
+                Vector3 apex = tipBase + tangent * tipLength;
+                int baseRing = rings * (sides + 1), apexRing = baseRing + sides + 1;
+                for (int j = 0; j <= sides; j++)
+                {
+                    float a = j / (float)sides * Mathf.PI * 2f;
+                    Vector3 dir = normal * Mathf.Cos(a) + binormal * Mathf.Sin(a);
+                    // 円錐の側面に垂直な法線（傾きは長さと太さの比で決まる）
+                    Vector3 n = (dir * tipLength + tangent * tipRadius).normalized;
+                    vertices[baseRing + j] = tipBase + dir * tipRadius;
+                    vertices[apexRing + j] = apex;
+                    normals[baseRing + j] = n;
+                    normals[apexRing + j] = n;
+                    uvs[baseRing + j] = new Vector2(j / (float)sides, length / textureLength);
+                    uvs[apexRing + j] = new Vector2(j / (float)sides, (length + tipLength) / textureLength);
+                }
+            }
+
             mesh.vertices = vertices;
             mesh.normals = normals;
             mesh.uv = uvs;
