@@ -17,6 +17,7 @@ namespace AMG
         float weakPointMarkerUntil;
         bool hitEffective;
         GUIStyle label, labelRight, center, title, subtitle, button, dangerMark;
+        GUIStyle panelName, panelAmmo, panelAmmoSmall, gadgetKey, gadgetTime;
 
         void OnEnable()
         {
@@ -76,6 +77,12 @@ namespace AMG
             subtitle = new GUIStyle(center) { fontSize = Mathf.RoundToInt(30 * S) };
             button = new GUIStyle(GUI.skin.button) { fontSize = size, wordWrap = true, alignment = TextAnchor.MiddleCenter };
             dangerMark = new GUIStyle(center) { fontSize = Mathf.RoundToInt(40 * S), fontStyle = FontStyle.Bold };
+
+            panelName = new GUIStyle(labelRight) { fontSize = Mathf.RoundToInt(18 * S), alignment = TextAnchor.UpperRight };
+            panelAmmo = new GUIStyle(labelRight) { fontSize = Mathf.RoundToInt(34 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.LowerRight };
+            panelAmmoSmall = new GUIStyle(panelAmmo) { fontSize = Mathf.RoundToInt(22 * S) };
+            gadgetKey = new GUIStyle(center) { fontSize = Mathf.RoundToInt(30 * S), fontStyle = FontStyle.Bold, wordWrap = false };
+            gadgetTime = new GUIStyle(center) { fontSize = Mathf.RoundToInt(20 * S), wordWrap = false };
         }
 
         void OnGUI()
@@ -148,17 +155,7 @@ namespace AMG
             GUI.Label(new Rect(hpRect.x, hpRect.y - 44 * s, 400 * s, 30 * s), $"HP {Mathf.CeilToInt(player.Hp)} / {player.maxHp:0}", label);
 
             // 武器・ガジェット
-            var wpn = weapons.Current;
-            string ammo = wpn.infiniteAmmo ? "∞"
-                : weapons.IsReloading ? $"リロード中 {weapons.ReloadProgress * 100f:0}%" : $"{weapons.Ammo} / {wpn.magSize}";
-            Rect right = new Rect(w - 520 * s, h - 150 * s, 480 * s, 30 * s);
-            GUI.Label(right, $"[{weapons.CurrentIndex + 1}] {wpn.name}", labelRight);
-            GUI.Label(new Rect(right.x, right.y + 34 * s, right.width, 30 * s), ammo, labelRight);
-            string heal = gadgets.IsHealing ? "（回復中）" : "";
-            string grenade = gadgets.GrenadeReady ? "OK" : $"{gadgets.GrenadeCooldownRemaining:0}s";
-            string medkit = gadgets.MedkitReady ? "OK" : $"{gadgets.MedkitCooldownRemaining:0}s";
-            GUI.Label(new Rect(right.x, right.y + 68 * s, right.width, 30 * s),
-                $"[E] グレネード {grenade}　[F] 回復キット {medkit}{heal}", labelRight);
+            DrawLoadoutPanels(w, h, s);
 
             // ウルト
             Rect ultRect = new Rect(w * 0.5f - 200 * s, h - 70 * s, 400 * s, 18 * s);
@@ -291,6 +288,104 @@ namespace AMG
             GUI.Label(new Rect(0, h * 0.35f, w, 90 * S), head, title);
             GUI.Label(new Rect(0, h * 0.47f, w, 50 * S), body, subtitle);
             GUI.Label(new Rect(0, h * 0.55f, w, 40 * S), "R キーでリトライ", center);
+        }
+
+        // ---------- 武器・ガジェット（右下） ----------
+
+        /// 右下に、上から武器パネル（持っている武器は大きく、それ以外は小さく）、最下段にガジェット2つを並べる
+        void DrawLoadoutPanels(float w, float h, float s)
+        {
+            float margin = 40f * s, gap = 6f * s;
+            float right = w - margin;
+
+            // ガジェット（最下段）
+            float gw = 115f * s, gh = 60f * s;
+            float gy = h - margin - gh;
+            DrawGadgetBox(new Rect(right - gw * 2f, gy, gw, gh), HudIcons.Grenade, "E",
+                gadgets.GrenadeReady, gadgets.GrenadeCooldownRemaining, gadgets.IsAimingGrenade ? new Color(1f, 0.85f, 0.3f) : Color.white, s);
+            DrawGadgetBox(new Rect(right - gw, gy, gw, gh), HudIcons.Medkit, "F",
+                gadgets.MedkitReady, gadgets.MedkitCooldownRemaining, gadgets.IsHealing ? new Color(0.4f, 1f, 0.5f) : Color.white, s);
+
+            // 武器（下から積む）。デバッグ武器（3番目以降）は持っているときだけ出す
+            float y = gy - gap;
+            for (int i = weapons.weapons.Length - 1; i >= 0; i--)
+            {
+                bool active = i == weapons.CurrentIndex;
+                if (i >= 2 && !active) continue;
+                float pw = (active ? 330f : 250f) * s, ph = (active ? 86f : 58f) * s;
+                y -= ph;
+                DrawWeaponPanel(new Rect(right - pw, y, pw, ph), i, active, s);
+                y -= gap;
+            }
+        }
+
+        void DrawWeaponPanel(Rect r, int index, bool active, float s)
+        {
+            var def = weapons.weapons[index];
+            Frame(r, active ? new Color(1f, 1f, 1f, 0.95f) : new Color(0.7f, 0.7f, 0.7f, 0.6f),
+                new Color(0f, 0f, 0f, active ? 0.55f : 0.35f), s);
+
+            var icon = def.automatic ? HudIcons.Rifle : HudIcons.Pistol;
+            float iconH = r.height * 0.5f;
+            float iconW = Mathf.Min(iconH * icon.width / icon.height, r.width * 0.55f);
+            var iconRect = new Rect(r.x + 14f * s, r.center.y - iconH * 0.5f, iconW, iconH);
+            Icon(iconRect, icon, active ? Color.white : new Color(0.75f, 0.75f, 0.75f, 0.8f));
+
+            string shortName = string.IsNullOrEmpty(def.shortName) ? (def.automatic ? "AR" : "P") : def.shortName;
+            bool reloading = active && weapons.IsReloading;
+            string ammo = def.infiniteAmmo ? "∞" : reloading ? "リロード" : $"{weapons.AmmoOf(index)}/{def.magSize}";
+
+            var text = new Rect(r.x + 8f * s, r.y + 6f * s, r.width - 18f * s, r.height - 12f * s);
+            GUI.Label(text, shortName, panelName);
+            GUI.Label(text, ammo, active ? panelAmmo : panelAmmoSmall);
+
+            if (reloading)
+                Bar(new Rect(r.x + 6f * s, r.yMax - 10f * s, r.width - 12f * s, 4f * s), weapons.ReloadProgress, new Color(1f, 0.85f, 0.3f));
+        }
+
+        /// 使えるときはキー、リチャージ中はアイコンに赤い×と残り秒数
+        void DrawGadgetBox(Rect r, Texture2D icon, string key, bool ready, float remaining, Color border, float s)
+        {
+            Frame(r, border, new Color(0f, 0f, 0f, 0.5f), s);
+            float size = r.height * 0.6f;
+            var iconRect = new Rect(r.x + 10f * s, r.center.y - size * 0.5f, size, size);
+            Icon(iconRect, icon, ready ? Color.white : new Color(0.6f, 0.6f, 0.6f, 0.7f));
+
+            var text = new Rect(iconRect.xMax, r.y, r.xMax - iconRect.xMax, r.height);
+            if (ready) GUI.Label(text, key, gadgetKey);
+            else
+            {
+                DrawCrossMark(iconRect, new Color(0.9f, 0.1f, 0.1f), 4f * s);
+                GUI.Label(text, $"{remaining:0.0}s", gadgetTime);
+            }
+        }
+
+        static void Frame(Rect r, Color border, Color background, float s)
+        {
+            float t = Mathf.Max(2f, 3f * s);
+            Fill(r, border);
+            Fill(new Rect(r.x + t, r.y + t, r.width - t * 2f, r.height - t * 2f), background);
+        }
+
+        static void Icon(Rect r, Texture2D tex, Color tint)
+        {
+            var prev = GUI.color;
+            GUI.color = tint;
+            GUI.DrawTexture(r, tex, ScaleMode.ScaleToFit);
+            GUI.color = prev;
+        }
+
+        static void DrawCrossMark(Rect r, Color c, float thickness)
+        {
+            var prev = GUI.matrix;
+            Vector2 center = r.center;
+            float len = r.width * 1.25f;
+            foreach (float angle in new[] { 45f, -45f })
+            {
+                GUIUtility.RotateAroundPivot(angle, center);
+                Fill(new Rect(center.x - len * 0.5f, center.y - thickness * 0.5f, len, thickness), c);
+                GUI.matrix = prev;
+            }
         }
 
         // ---------- 描画ヘルパー ----------

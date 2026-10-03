@@ -7,6 +7,8 @@ namespace AMG
     public class WeaponDef
     {
         public string name;
+        [Tooltip("HUDに出す短い名前。空なら連射武器は AR、それ以外は P")]
+        public string shortName;
         public float damage;
         public float fireRate;      // 1秒あたりの発射数
         public int magSize;
@@ -24,8 +26,8 @@ namespace AMG
     {
         public WeaponDef[] weapons =
         {
-            new WeaponDef { name = "アサルトライフル", damage = 12f, fireRate = 10f, magSize = 30, reloadTime = 1.8f, hipSpread = 2.2f, aimSpread = 0.6f, recoil = 0.35f, automatic = true },
-            new WeaponDef { name = "ハンドガン", damage = 28f, fireRate = 4f, magSize = 12, reloadTime = 1.2f, hipSpread = 1.2f, aimSpread = 0.2f, recoil = 1.1f, automatic = false },
+            new WeaponDef { name = "アサルトライフル", shortName = "AR", damage = 12f, fireRate = 10f, magSize = 30, reloadTime = 1.8f, hipSpread = 2.2f, aimSpread = 0.6f, recoil = 0.35f, automatic = true },
+            new WeaponDef { name = "ハンドガン", shortName = "P", damage = 28f, fireRate = 4f, magSize = 12, reloadTime = 1.2f, hipSpread = 1.2f, aimSpread = 0.2f, recoil = 1.1f, automatic = false },
         };
         public Transform muzzle;
         public float range = 200f;
@@ -34,7 +36,7 @@ namespace AMG
         public bool debugWeaponEnabled = true;
         public WeaponDef debugWeapon = new WeaponDef
         {
-            name = "デバッグ銃", damage = 500f, fireRate = 12f, magSize = 999, reloadTime = 0f,
+            name = "デバッグ銃", shortName = "DEBUG", damage = 500f, fireRate = 12f, magSize = 999, reloadTime = 0f,
             hipSpread = 0f, aimSpread = 0f, recoil = 0.1f, automatic = true, infiniteAmmo = true,
         };
 
@@ -45,6 +47,7 @@ namespace AMG
         public int CurrentIndex { get; private set; }
         public WeaponDef Current => weapons[CurrentIndex];
         public int Ammo => ammo[CurrentIndex];
+        public int AmmoOf(int index) => ammo[index];
         public bool IsReloading => reloadEnd > 0f;
         public float ReloadProgress => IsReloading ? Mathf.InverseLerp(reloadStart, reloadEnd, Time.time) : 0f;
 
