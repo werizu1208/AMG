@@ -16,15 +16,34 @@ namespace AMG
         public float faceYawLimit = 60f;
         public float headRollMax = 35f;
 
+        [Header("待機中の根の腕のうねり")]
+        [Tooltip("先端がさまよう範囲（m）")]
+        public float idleWander = 2.5f;
+        [Tooltip("先端がさまよう速さ")]
+        public float idleWanderSpeed = 0.35f;
+        [Tooltip("根の途中が横にうねる大きさ（m）")]
+        public float idleWaveAmplitude = 0.7f;
+        [Tooltip("うねりが根元から先端へ伝わる速さ")]
+        public float idleWaveSpeed = 2.2f;
+        [Tooltip("根1本あたりの波の数")]
+        public float idleWaveCount = 1.5f;
+
         public override Vector3 CastPoint => face.position + face.forward * 1.2f * transform.lossyScale.y;
 
         Vector3[] rootRestDir;
         float[] rootSeeds;
         float headRoll, headRollTarget, nextHeadSnap;
         Vector3 slamStart;
+        float seedL, seedR;
+        float idleWeight;
+        float wavePhaseL, wavePhaseR;
+        // うねりを加える前の関節位置。次のフレームのIKはここから解く（揺れが積み重ならないように）
+        Vector3[] unwavedL, unwavedR;
 
         void Start()
         {
+            seedL = Random.Range(0f, 100f);
+            seedR = Random.Range(0f, 100f);
             rootRestDir = new Vector3[groundRoots.Length];
             rootSeeds = new float[groundRoots.Length];
             for (int i = 0; i < groundRoots.Length; i++)
@@ -39,18 +58,69 @@ namespace AMG
             float dt = Time.deltaTime;
             if (dt <= 0f) return;
 
+            // 攻撃していないときだけ、うねりをなめらかに強める
+            idleWeight = Mathf.MoveTowards(idleWeight, Action == BossAction.None ? 1f : 0f, dt * 2f);
+
+            Restore(tendrilL, unwavedL);
+            Restore(tendrilR, unwavedR);
             UpdateTendril(tendrilL, -1f, dt);
             UpdateTendril(tendrilR, 1f, dt);
+            Undulate(tendrilL, seedL, ref wavePhaseL, ref unwavedL, dt);
+            Undulate(tendrilR, seedR, ref wavePhaseR, ref unwavedR, dt);
             UpdateGroundRoots();
             UpdateFace(dt);
         }
 
+        /// 待機中の先端の目標。ノイズでランダムにさまよう
         Vector3 IdleTarget(float side)
         {
             float s = transform.lossyScale.y;
-            float t = Time.time;
-            Vector3 sway = new Vector3(Mathf.Sin(t * 0.9f + side), Mathf.Sin(t * 1.3f + side * 2f) * 0.6f, Mathf.Cos(t * 0.7f + side)) * 0.8f;
-            return transform.position + (transform.right * side * 5f + transform.forward * 4f + Vector3.up * 4f + sway) * s;
+            float t = Time.time * idleWanderSpeed;
+            float seed = side < 0f ? seedL : seedR;
+            Vector3 wander = new Vector3(
+                Noise(t, seed),
+                Noise(t, seed + 31.7f) * 0.7f,
+                Noise(t, seed + 57.3f)) * idleWander;
+            return transform.position + (transform.right * side * 5f + transform.forward * 4f + Vector3.up * 4f + wander) * s;
+        }
+
+        static void Restore(FabrikChain chain, Vector3[] unwaved)
+        {
+            if (unwaved == null || unwaved.Length != chain.joints.Length) return;
+            for (int i = 0; i < unwaved.Length; i++) chain.joints[i].position = unwaved[i];
+        }
+
+        /// -1〜1 のなめらかなノイズ
+        static float Noise(float t, float seed) => Mathf.PerlinNoise(t, seed) * 2f - 1f;
+
+        /// 根元から先端へ伝わる波で、根の途中の関節を横にうねらせる（両端は動かさない）
+        void Undulate(FabrikChain chain, float seed, ref float phase, ref Vector3[] unwaved, float dt)
+        {
+            var joints = chain.joints;
+            int n = joints.Length;
+            if (unwaved == null || unwaved.Length != n) unwaved = new Vector3[n];
+            for (int i = 0; i < n; i++) unwaved[i] = joints[i].position;
+            if (idleWeight <= 0f) return;
+            float s = transform.lossyScale.y;
+
+            // 波の速さも少し揺らして、機械的な繰り返しに見えないようにする
+            phase += dt * idleWaveSpeed * (0.7f + 0.6f * Mathf.PerlinNoise(Time.time * 0.3f, seed));
+
+            Vector3 axis = (chain.Tip - chain.Base).normalized;
+            Vector3 sideA = Vector3.Cross(axis, Vector3.up);
+            if (sideA.sqrMagnitude < 1e-4f) sideA = Vector3.Cross(axis, Vector3.forward);
+            sideA.Normalize();
+            Vector3 sideB = Vector3.Cross(axis, sideA);
+
+            for (int i = 1; i < n - 1; i++)
+            {
+                float u = i / (float)(n - 1);
+                float envelope = Mathf.Sin(u * Mathf.PI);   // 両端0・中央で最大
+                float w = u * idleWaveCount * Mathf.PI * 2f;
+                Vector3 offset = sideA * Mathf.Sin(phase - w) + sideB * Mathf.Cos(phase * 0.8f - w * 0.9f) * 0.6f;
+                joints[i].position += offset * (idleWaveAmplitude * envelope * idleWeight * s);
+            }
+            chain.RefreshRotations();
         }
 
         void UpdateTendril(FabrikChain chain, float side, float dt)

@@ -62,10 +62,17 @@ namespace AMG
                 }
             }
 
+            for (int i = 0; i < n; i++) joints[i].position = p[i];
+            RefreshRotations();
+        }
+
+        /// 関節の位置に合わせて、各関節を次の関節の方向へ向け直す（位置を後から動かしたとき用）
+        public void RefreshRotations()
+        {
+            int n = joints.Length;
             for (int i = 0; i < n; i++)
             {
-                joints[i].position = p[i];
-                Vector3 fwd = i < n - 1 ? p[i + 1] - p[i] : p[i] - p[i - 1];
+                Vector3 fwd = i < n - 1 ? joints[i + 1].position - joints[i].position : joints[i].position - joints[i - 1].position;
                 if (fwd.sqrMagnitude > 1e-6f)
                 {
                     Vector3 up = Mathf.Abs(Vector3.Dot(fwd.normalized, Vector3.up)) > 0.98f ? Vector3.forward : Vector3.up;

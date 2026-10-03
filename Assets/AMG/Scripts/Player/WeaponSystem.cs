@@ -15,9 +15,11 @@ namespace AMG
         public float aimSpread;     // エイム時のばらつき（度）
         public float recoil;
         public bool automatic;
+        public bool infiniteAmmo;   // 弾が減らない（リロード不要）
     }
 
-    /// メイン・サブ武器。画面中央へのヒットスキャン。α版では予備弾は無限
+    /// メイン・サブ武器。画面中央へのヒットスキャン。α版では予備弾は無限。
+    /// エディタ・開発ビルドでは、3キーでデバッグ用の武器に持ち替えられる
     public class WeaponSystem : MonoBehaviour
     {
         public WeaponDef[] weapons =
@@ -27,6 +29,14 @@ namespace AMG
         };
         public Transform muzzle;
         public float range = 200f;
+
+        [Header("デバッグ（エディタ・開発ビルドのみ。3キーで持ち替え）")]
+        public bool debugWeaponEnabled = true;
+        public WeaponDef debugWeapon = new WeaponDef
+        {
+            name = "デバッグ銃", damage = 500f, fireRate = 12f, magSize = 999, reloadTime = 0f,
+            hipSpread = 0f, aimSpread = 0f, recoil = 0.1f, automatic = true, infiniteAmmo = true,
+        };
 
         /// ウルトによる倍率
         [HideInInspector] public float damageMultiplier = 1f;
@@ -48,6 +58,11 @@ namespace AMG
         void Awake()
         {
             controller = GetComponent<PlayerController>();
+            if (debugWeaponEnabled && (Application.isEditor || Debug.isDebugBuild))
+            {
+                var list = new System.Collections.Generic.List<WeaponDef>(weapons) { debugWeapon };
+                weapons = list.ToArray();
+            }
             ammo = new int[weapons.Length];
             for (int i = 0; i < weapons.Length; i++) ammo[i] = weapons[i].magSize;
         }
@@ -71,6 +86,7 @@ namespace AMG
 
             if (kb.digit1Key.wasPressedThisFrame) Switch(0);
             if (kb.digit2Key.wasPressedThisFrame) Switch(1);
+            if (kb.digit3Key.wasPressedThisFrame) Switch(2);
             if (kb.rKey.wasPressedThisFrame) StartReload();
             if (!GameManager.CursorLocked) return;
 
@@ -92,7 +108,7 @@ namespace AMG
 
         void StartReload()
         {
-            if (IsReloading || ammo[CurrentIndex] >= Current.magSize) return;
+            if (IsReloading || Current.infiniteAmmo || ammo[CurrentIndex] >= Current.magSize) return;
             reloadStart = Time.time;
             reloadEnd = Time.time + Current.reloadTime;
         }
@@ -100,7 +116,7 @@ namespace AMG
         void Fire()
         {
             var w = Current;
-            ammo[CurrentIndex]--;
+            if (!w.infiniteAmmo) ammo[CurrentIndex]--;
             nextFire = Time.time + 1f / (w.fireRate * fireRateMultiplier);
 
             Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));

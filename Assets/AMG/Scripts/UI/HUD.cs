@@ -149,7 +149,8 @@ namespace AMG
 
             // 武器・ガジェット
             var wpn = weapons.Current;
-            string ammo = weapons.IsReloading ? $"リロード中 {weapons.ReloadProgress * 100f:0}%" : $"{weapons.Ammo} / {wpn.magSize}";
+            string ammo = wpn.infiniteAmmo ? "∞"
+                : weapons.IsReloading ? $"リロード中 {weapons.ReloadProgress * 100f:0}%" : $"{weapons.Ammo} / {wpn.magSize}";
             Rect right = new Rect(w - 520 * s, h - 150 * s, 480 * s, 30 * s);
             GUI.Label(right, $"[{weapons.CurrentIndex + 1}] {wpn.name}", labelRight);
             GUI.Label(new Rect(right.x, right.y + 34 * s, right.width, 30 * s), ammo, labelRight);

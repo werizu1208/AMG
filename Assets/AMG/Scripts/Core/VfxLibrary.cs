@@ -20,6 +20,11 @@ namespace AMG
         public Material scarecrow;
         public Material scarecrowHead;
         public Material grenade;
+        [Tooltip("本体の根と同じ樹皮（地を這う根・突き出す根に使う）。空なら spike を使う")]
+        public Material rootBark;
+
+        /// 攻撃で出てくる根の見た目
+        public Material RootMaterial => rootBark != null ? rootBark : spike;
 
         void Awake()
         {

@@ -220,8 +220,8 @@ namespace AMG
                 Vector3 toTarget = Flat(t - origin);
                 Vector3 start = origin + (toTarget.sqrMagnitude > 0.01f ? toTarget.normalized : transform.forward) * (p2 ? 2f : 0.7f);
                 var crawl = p2
-                    ? RootCrawl.Create(start, t, delay * 0.9f, 0.7f, 0.3f, 1f, VfxLibrary.I.spike)
-                    : RootCrawl.Create(start, t, delay * 0.9f, 0.35f, 0.15f, 0.5f, VfxLibrary.I.spike);
+                    ? RootCrawl.Create(start, t, delay * 0.9f, 0.7f, 0.3f, 1f, VfxLibrary.I.RootMaterial)
+                    : RootCrawl.Create(start, t, delay * 0.9f, 0.35f, 0.15f, 0.5f, VfxLibrary.I.RootMaterial);
                 temporary.Add(crawl.gameObject);
                 crawls.Add(crawl.gameObject);
             }
@@ -249,11 +249,12 @@ namespace AMG
             int n = Mathf.RoundToInt(radius * 3f);
             for (int i = 0; i < n; i++)
             {
+                // 根元が太く先が尖った根。外側のものほど外へ反らせて、地面を割って噴き出したように見せる
                 Vector2 o = Random.insideUnitCircle * radius * 0.8f;
                 float h = Random.Range(1.5f, 3f);
-                var rot = Quaternion.Euler(Random.Range(-15f, 15f), Random.Range(0f, 360f), Random.Range(-15f, 15f));
-                Prim.Create(PrimitiveType.Cylinder, "Spike", root.transform, new Vector3(o.x, h * 0.5f, o.y),
-                    new Vector3(0.35f, h * 0.5f, 0.35f), lib.spike, false, rot);
+                Vector3 outward = new Vector3(o.x, 0f, o.y) / Mathf.Max(0.01f, radius);
+                Vector3 bend = (outward * 0.8f + new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f))) * h * 0.35f;
+                RootCrawl.CreateSpike(root.transform, new Vector3(o.x, 0f, o.y), h, Random.Range(0.18f, 0.32f), bend, lib.RootMaterial);
             }
             return root;
         }
@@ -441,7 +442,7 @@ namespace AMG
                 {
                     Vector3 seg = pos - lastTrail;
                     var piece = Prim.Create(PrimitiveType.Cylinder, "BurrowTrail", null, (pos + lastTrail) * 0.5f + Vector3.up * 0.05f,
-                        new Vector3(0.35f * s, seg.magnitude * 0.55f, 0.35f * s), lib.spike, false, Quaternion.FromToRotation(Vector3.up, seg));
+                        new Vector3(0.35f * s, seg.magnitude * 0.55f, 0.35f * s), lib.RootMaterial, false, Quaternion.FromToRotation(Vector3.up, seg));
                     temporary.Add(piece);
                     trail.Add(piece);
                     lastTrail = pos;

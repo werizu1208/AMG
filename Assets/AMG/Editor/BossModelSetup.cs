@@ -64,6 +64,9 @@ namespace AMG.EditorTools
             { "LegL_End", Slot("foot", 0.01f, 0.09f, 0.03f, 0f, -32.33f, 0f) },
             { "LegR_End", Slot("foot", 0.015f, 0.09f, 0.06f, 0f, -90f, 180f, -1f) },
             { "Log", Slot("log") },
+            // フェーズ2：巨木の怪物（胴体は根元が原点。空洞が顔の高さ6.5mに来るよう整えてある）
+            { "TreeForm", Slot("tree_body") },
+            { "Face", Slot("tree_face") },
         };
 
         [MenuItem("A・M・G/ステージ1ボスにAI生成モデルを割り当て")]
@@ -81,7 +84,8 @@ namespace AMG.EditorTools
 
             int assigned = 0;
             var missing = new List<string>();
-            foreach (var slot in boss.girlVisual.GetComponentsInChildren<VisualSlot>(true))
+            AssignRootBark(boss);
+            foreach (var slot in boss.GetComponentsInChildren<VisualSlot>(true))
             {
                 if (!Stage1Models.TryGetValue(slot.name, out var def)) continue;
                 var model = AssetDatabase.LoadAssetAtPath<GameObject>($"{Stage1ModelDir}/{def.model}.fbx");
@@ -161,6 +165,41 @@ namespace AMG.EditorTools
             }
             AssetDatabase.SaveAssets();
             return count;
+        }
+
+        /// フェーズ2の根の腕・地面の根（TendrilTube）に、継ぎ目のない樹皮テクスチャのマテリアルを使う
+        static void AssignRootBark(BossController boss)
+        {
+            var tex = LoadTexture($"{Stage1ModelDir}/Textures/root_bark_basecolor.jpg", false);
+            if (tex == null) return;
+            string matPath = $"{Stage1ModelDir}/Materials/root_bark.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+            if (mat == null)
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+                AssetDatabase.CreateAsset(mat, matPath);
+            }
+            mat.SetTexture("_BaseMap", tex);
+            mat.SetColor("_BaseColor", Color.white);
+            mat.SetFloat("_Metallic", 0f);
+            mat.SetFloat("_Smoothness", 0.15f);
+            EditorUtility.SetDirty(mat);
+
+            foreach (var tube in boss.GetComponentsInChildren<TendrilTube>(true))
+            {
+                Undo.RecordObject(tube, "根に樹皮マテリアルを設定");
+                tube.material = mat;
+                EditorUtility.SetDirty(tube);
+            }
+
+            // 攻撃で出てくる根（地を這う根・突き出す根・潜行の跡）も同じ樹皮にする
+            var lib = Object.FindFirstObjectByType<VfxLibrary>(FindObjectsInactive.Include);
+            if (lib != null)
+            {
+                Undo.RecordObject(lib, "攻撃の根に樹皮マテリアルを設定");
+                lib.rootBark = mat;
+                EditorUtility.SetDirty(lib);
+            }
         }
 
         static Texture2D LoadTexture(string path, bool normalMap)

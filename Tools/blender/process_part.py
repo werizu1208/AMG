@@ -35,6 +35,9 @@ PARTS = {
     "shin":      dict(kind="limb", length=0.44, root="top", tris=1500, tex=1024),
     "foot":      dict(kind="upright", height=0.15, pivot=1.00, tris=1500, tex=1024),  # 原点＝足首（上端）
     "log":       dict(kind="limb", length=6.00, root="bottom", tris=5000, tex=2048),  # 根の側が腕から生える
+    # フェーズ2：巨木の怪物
+    "tree_body": dict(kind="upright", height=11.2, pivot=0.00, tris=15000, tex=2048, strip_floaters=True),  # 原点＝根元。空洞が高さ6.5mに来る
+    "tree_face": dict(kind="upright", height=3.20, pivot=0.75, tris=5000, tex=2048),   # 原点＝仮面の中心（髪が下に垂れる）
 }
 
 
@@ -47,6 +50,8 @@ def main():
     bpy.ops.import_scene.gltf(filepath=src)
 
     obj = join_meshes()
+    if cfg.get("strip_floaters"):
+        obj = strip_floaters(obj)
     decimate(obj, cfg["tris"])
     normalize(obj, cfg)
     # テクスチャは FBX の隣の Textures/ に <パーツ名>_basecolor.jpg などで書き出す。
@@ -89,6 +94,63 @@ def join_meshes():
     obj = bpy.context.view_layer.objects.active
     obj.name = "Part"
     return obj
+
+
+def strip_floaters(obj):
+    """大きな本体から離れて浮いている小さなかけら（生成ミス）だけを取り除く。
+    小さなかけらでも、本体に接している（＝枝の一部など）ものは残す"""
+    from mathutils.kdtree import KDTree
+
+    total = len(obj.data.vertices)
+    allv = np.array([v.co[:] for v in obj.data.vertices])
+    gap = float((allv.max(axis=0) - allv.min(axis=0)).max()) * 0.02  # 全体の大きさの2%以上離れていたら「浮いている」
+
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.separate(type="LOOSE")
+    bpy.ops.object.mode_set(mode="OBJECT")
+    parts = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    big = [o for o in parts if len(o.data.vertices) >= total * 0.005]
+    small = [o for o in parts if len(o.data.vertices) < total * 0.005]
+
+    def build_tree(objs):
+        cos = [v.co.copy() for o in objs for i, v in enumerate(o.data.vertices) if i % 3 == 0]
+        t = KDTree(len(cos))
+        for i, co in enumerate(cos):
+            t.insert(co, i)
+        t.balance()
+        return t
+
+    def nearest(t, o):
+        verts = o.data.vertices
+        step = max(1, len(verts) // 40)
+        return min(t.find(verts[i].co)[2] for i in range(0, len(verts), step))
+
+    # 本体からたどれる（近くにある）かけらを、つながりがなくなるまで繰り返し取り込む
+    kept = list(big)
+    rest = list(small)
+    while rest:
+        t = build_tree(kept)
+        near = [o for o in rest if nearest(t, o) <= gap]
+        if not near:
+            break
+        kept += near
+        rest = [o for o in rest if o not in near]
+
+    removed = 0
+    for o in rest:
+        bpy.data.objects.remove(o, do_unlink=True)
+        removed += 1
+    print(f"[A・M・G] 浮いたかけらを {removed} 個削除（全 {len(parts)} 個中）")
+    keep = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in keep:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = keep[0]
+    if len(keep) > 1:
+        bpy.ops.object.join()
+    return bpy.context.view_layer.objects.active
 
 
 def decimate(obj, target_tris):
