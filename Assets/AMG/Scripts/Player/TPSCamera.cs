@@ -5,7 +5,7 @@ namespace AMG
 {
     /// 肩越しのTPSカメラ。常にプレイヤーの右後方・上部に固定される。
     /// マウス左右でプレイヤーごと旋回し、マウス上下は視線の傾きだけを変える（カメラ位置は動かない）。
-    /// 右クリックでエイム（寄り＋FOV縮小）、壁めり込み防止つき
+    /// 右クリックでエイム（カメラ位置はそのままで、画角だけ狭めてズーム）、壁めり込み防止つき
     [DefaultExecutionOrder(-50)] // プレイヤーの移動より先にマウス入力を反映し、本体とカメラの向きがずれないようにする
     [RequireComponent(typeof(Camera))]
     public class TPSCamera : MonoBehaviour
@@ -18,13 +18,10 @@ namespace AMG
 
         [Header("位置（プレイヤーから見た右後方・上部）")]
         public float distance = 3.6f;
-        public float aimDistance = 1.9f;
         public float shoulder = 0.8f;
-        public float aimShoulder = 0.6f;
         public float height = 0.55f;
-        public float aimHeight = 0.25f;
 
-        [Header("画角")]
+        [Header("画角（エイム中は位置を変えず、画角だけ狭める）")]
         public float fov = 60f;
         public float aimFov = 45f;
 
@@ -42,9 +39,6 @@ namespace AMG
         PlayerController player;
         float yaw;
         float pitch;
-        float currentDistance;
-        float currentShoulder;
-        float currentHeight;
 
         void Awake()
         {
@@ -60,9 +54,6 @@ namespace AMG
                 yaw = target.eulerAngles.y;
                 player = target.GetComponent<PlayerController>();
             }
-            currentDistance = distance;
-            currentShoulder = shoulder;
-            currentHeight = height;
         }
 
         public void AddRecoil(float up, float side)
@@ -89,19 +80,15 @@ namespace AMG
 
             bool aiming = player != null && player.IsAiming;
             float k = 1f - Mathf.Exp(-14f * Time.deltaTime);
-            currentDistance = Mathf.Lerp(currentDistance, aiming ? aimDistance : distance, k);
-            currentShoulder = Mathf.Lerp(currentShoulder, aiming ? aimShoulder : shoulder, k);
-            currentHeight = Mathf.Lerp(currentHeight, aiming ? aimHeight : height, k);
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, aiming ? aimFov : fov, k);
 
-            // 位置は旋回角だけで決める（上下を向いてもカメラは右後方上部に留まる）
+            // 位置は旋回角だけで決める（上下を向いても、エイムしても、カメラは右後方上部に留まる）
             Quaternion yawRot = Quaternion.Euler(0f, yaw, 0f);
             Vector3 pivot = target.position + pivotOffset;
-            Vector3 shoulderPos = Cast(pivot, pivot + yawRot * new Vector3(currentShoulder, currentHeight, 0f));
-            Vector3 pos = Cast(shoulderPos, shoulderPos + yawRot * Vector3.back * currentDistance);
+            Vector3 shoulderPos = Cast(pivot, pivot + yawRot * new Vector3(shoulder, height, 0f));
+            Vector3 pos = Cast(shoulderPos, shoulderPos + yawRot * Vector3.back * distance);
             transform.SetPositionAndRotation(pos, Quaternion.Euler(pitch, yaw, 0f));
         }
-
         Vector3 Cast(Vector3 from, Vector3 to)
         {
             Vector3 d = to - from;
