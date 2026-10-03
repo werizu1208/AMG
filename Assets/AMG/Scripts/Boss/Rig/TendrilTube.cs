@@ -145,11 +145,11 @@ namespace AMG
                     float a = j / (float)sides * Mathf.PI * 2f;
                     Vector3 dir = normal * Mathf.Cos(a) + binormal * Mathf.Sin(a);
                     // 円錐の側面に垂直な法線（傾きは長さと太さの比で決まる）
-                    Vector3 n = (dir * tipLength + tangent * tipRadius).normalized;
+                    Vector3 coneNormal = (dir * tipLength + tangent * tipRadius).normalized;
                     vertices[baseRing + j] = tipBase + dir * tipRadius;
                     vertices[apexRing + j] = apex;
-                    normals[baseRing + j] = n;
-                    normals[apexRing + j] = n;
+                    normals[baseRing + j] = coneNormal;
+                    normals[apexRing + j] = coneNormal;
                     uvs[baseRing + j] = new Vector2(j / (float)sides, length / textureLength);
                     uvs[apexRing + j] = new Vector2(j / (float)sides, (length + tipLength) / textureLength);
                 }
