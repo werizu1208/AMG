@@ -8,14 +8,14 @@ namespace AMG
     {
         public float damageMultiplier = 1.2f;
 
-        BossController owner;
+        BossBase owner;
 
         public bool IsAlive => owner != null && owner.IsAlive;
 
         /// 範囲攻撃用：弱点ならボス本体を返す
         public static IDamageable Resolve(IDamageable target) => target is WeakPoint wp && wp.owner != null ? wp.owner : target;
 
-        public void Init(BossController boss, float multiplier)
+        public void Init(BossBase boss, float multiplier)
         {
             owner = boss;
             damageMultiplier = multiplier;

@@ -11,7 +11,7 @@ namespace AMG
         WeaponSystem weapons;
         GadgetSystem gadgets;
         UltSystem ult;
-        BossController boss;
+        BossBase boss;
 
         float hitMarkerUntil;
         float weakPointMarkerUntil;
@@ -52,7 +52,7 @@ namespace AMG
                 gadgets = player.GetComponent<GadgetSystem>();
                 ult = player.GetComponent<UltSystem>();
             }
-            boss = FindFirstObjectByType<BossController>();
+            boss = FindFirstObjectByType<BossBase>();
         }
 
         void Update()
@@ -117,7 +117,7 @@ namespace AMG
             float w = Screen.width, h = Screen.height;
             Fill(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.75f));
             GUI.Label(new Rect(0, h * 0.08f, w, 80 * S), "対魔法少女殲滅部隊 A・M・G", title);
-            GUI.Label(new Rect(0, h * 0.17f, w, 40 * S), "α版　ステージ1：植物に埋もれた村", subtitle);
+            if (boss != null) GUI.Label(new Rect(0, h * 0.17f, w, 40 * S), boss.stageTitle, subtitle);
             GUI.Label(new Rect(0, h * 0.25f, w, 40 * S), "ウルトを選択して出撃（クリック または 1 / 2 キー）", center);
 
             float bw = 560 * S, bh = 220 * S, gap = 40 * S;
@@ -131,7 +131,7 @@ namespace AMG
                 "WASD 移動　Shift ダッシュ　Space ジャンプ　Ctrl 回避　C しゃがみ\n" +
                 "右クリック エイム　左クリック 射撃　R リロード　1/2 武器切替\n" +
                 "E 長押しでグレネードを構え、離して投擲　F 回復キット　Q ウルト　Esc カーソル解放\n\n" +
-                "瘤（こぶ）が残っている限り、魔法少女は再生し続ける。\nソロ出撃：HPが0になると即死。";
+                (boss != null ? boss.loadoutHint : "");
             GUI.Label(new Rect(0, y + bh + 40 * S, w, 260 * S), controls, center);
         }
 
@@ -194,17 +194,14 @@ namespace AMG
             Rect bar = new Rect(w * 0.5f - 450 * s, 70 * s, 900 * s, 22 * s);
             GUI.Label(new Rect(bar.x, bar.y - 36 * s, bar.width, 32 * s), boss.bossName, center);
 
-            Color hpColor = boss.IsReviving ? new Color(0.9f, 0.9f, 0.9f) : new Color(0.45f, 0.6f, 0.25f);
-            Bar(bar, boss.Hp / boss.maxHp, hpColor);
-            // フェーズ2移行ラインの目盛り
-            Fill(new Rect(bar.x + bar.width * boss.phase2Threshold - 1 * s, bar.y - 4 * s, 2 * s, bar.height + 8 * s), new Color(1f, 1f, 1f, 0.6f));
+            Bar(bar, boss.Hp / boss.maxHp, boss.HpBarColor);
+            // フェーズ移行ラインの目盛り
+            var markers = boss.PhaseMarkers;
+            if (markers != null)
+                foreach (float m in markers)
+                    Fill(new Rect(bar.x + bar.width * m - 1 * s, bar.y - 4 * s, 2 * s, bar.height + 8 * s), new Color(1f, 1f, 1f, 0.6f));
 
-            string status = $"フェーズ{boss.Phase}　ダメージ軽減 {boss.DamageReduction * 100f:0}%　瘤 残り {boss.KnotsRemaining}/{boss.KnotsTotal}";
-            if (boss.IsRegenerating) status += "　<再生中>";
-            if (boss.IsReviving) status += "　<無敵：再生>";
-            if (boss.IsTransforming) status += "　<変異中>";
-            if (boss.IsBurrowed) status += "　<地中>";
-            GUI.Label(new Rect(bar.x, bar.y + 26 * s, bar.width, 30 * s), status, center);
+            GUI.Label(new Rect(bar.x, bar.y + 26 * s, bar.width, 30 * s), boss.StatusText, center);
         }
 
         /// ボスの攻撃予兆の範囲内にいる間、画面中央上部（ボスHPバーの下）に点滅する危険マークを出す

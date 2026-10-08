@@ -19518,10 +19518,10 @@ MonoBehaviour:
   followBone: {fileID: 0}
   sensitivity: 0.1
   distance: 3.6
-  shoulder: 0.8
-  height: 1
+  shoulder: 0.91
+  height: 1.1
   fov: 45
-  aimFov: 40
+  aimFov: 20
   minPitch: -40
   maxPitch: 60
   defaultPitch: 8

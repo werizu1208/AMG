@@ -88,7 +88,7 @@ namespace AMG.EditorTools
             };
         }
 
-        static Material Mat(string name, Color color, bool unlit = false, bool transparent = false, Color? emission = null)
+        internal static Material Mat(string name, Color color, bool unlit = false, bool transparent = false, Color? emission = null)
         {
             string path = $"{MatDir}/{name}.mat";
             var shader = Shader.Find(unlit ? "Universal Render Pipeline/Unlit" : "Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
@@ -461,7 +461,7 @@ namespace AMG.EditorTools
 
         // ---------- ユーティリティ ----------
 
-        static void EnsureFolder(string path)
+        internal static void EnsureFolder(string path)
         {
             if (AssetDatabase.IsValidFolder(path)) return;
             int slash = path.LastIndexOf('/');

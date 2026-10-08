@@ -9,10 +9,18 @@ namespace AMG
     /// ・瘤を壊すと根を吸収して大きくなり、被ダメージが軽減されていく
     /// ・瘤が残ったままHPを削りきると、一定時間無敵になってHPを回復する
     /// ・瘤がすべて破壊され、かつHP40%以下でフェーズ2（巨木の怪物）へ。HPは全体で共通、HP0で撃破
-    public class BossController : MonoBehaviour, IDamageable
+    public class BossController : BossBase
     {
-        public string bossName = "植物に埋もれた村の魔法少女";
-        public float maxHp = 5000f;
+        const string DefaultName = "植物に埋もれた村の魔法少女";
+        const string DefaultStageTitle = "α版　ステージ1：植物に埋もれた村";
+        const string DefaultHint = "瘤（こぶ）が残っている限り、魔法少女は再生し続ける。\nソロ出撃：HPが0になると即死。";
+
+        void Reset()
+        {
+            bossName = DefaultName;
+            stageTitle = DefaultStageTitle;
+            loadoutHint = DefaultHint;
+        }
 
         [Header("瘤")]
         public float regenPerKnot = 8f;
@@ -63,14 +71,10 @@ namespace AMG
         public float keepDistance = 6f;
         public float turnSpeed = 120f;
 
-        public float Hp { get; private set; }
-        public int Phase { get; private set; } = 1;
         public bool IsReviving { get; private set; }
         public bool IsTransforming { get; private set; }
-        public bool IsDead { get; private set; }
         /// 地中に潜っている間（攻撃が当たらない）
         public bool IsBurrowed { get; set; }
-        public bool IsAlive => !IsDead;
         public int KnotsTotal => knots.Count;
         public int KnotsRemaining { get; private set; }
         public bool IsRegenerating => KnotsRemaining > 0 && !IsDead;
@@ -92,8 +96,28 @@ namespace AMG
         SphereCollider girlWeakCollider;
         SphereCollider treeWeakCollider;
 
+        public override string StatusText
+        {
+            get
+            {
+                string status = $"フェーズ{Phase}　ダメージ軽減 {DamageReduction * 100f:0}%　瘤 残り {KnotsRemaining}/{KnotsTotal}";
+                if (IsRegenerating) status += "　<再生中>";
+                if (IsReviving) status += "　<無敵：再生>";
+                if (IsTransforming) status += "　<変異中>";
+                if (IsBurrowed) status += "　<地中>";
+                return status;
+            }
+        }
+
+        public override Color HpBarColor => IsReviving ? new Color(0.9f, 0.9f, 0.9f) : new Color(0.45f, 0.6f, 0.25f);
+        public override float[] PhaseMarkers => new[] { phase2Threshold };
+
         void Awake()
         {
+            // 既存のシーン（項目を追加する前に保存したもの）でも出撃前の表示が出るように
+            if (string.IsNullOrEmpty(bossName)) bossName = DefaultName;
+            if (string.IsNullOrEmpty(stageTitle)) stageTitle = DefaultStageTitle;
+            if (string.IsNullOrEmpty(loadoutHint)) loadoutHint = DefaultHint;
             Hp = maxHp;
             attacks = GetComponent<BossAttacks>();
             voice = GetComponent<BossVoice>();
@@ -208,7 +232,7 @@ namespace AMG
             transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(dir), degPerSec * Time.deltaTime);
         }
 
-        public float TakeDamage(float amount, Vector3 hitPoint)
+        public override float TakeDamage(float amount, Vector3 hitPoint)
         {
             if (IsDead || IsReviving || IsTransforming || IsBurrowed || !GameManager.IsPlaying) return 0f;
 

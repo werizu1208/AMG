@@ -2,7 +2,8 @@ using UnityEngine;
 
 namespace AMG
 {
-    /// ボスの片言（字幕）。村の住人がいたころの言葉を、意味もわからず繰り返す
+    /// ボスの台詞（字幕）。HUDが表示する。
+    /// ステージ1の少女は、村の住人がいたころの言葉を意味もわからず繰り返す（自動）
     public class BossVoice : MonoBehaviour
     {
         public static BossVoice I { get; private set; }
@@ -34,7 +35,8 @@ namespace AMG
 
         void Update()
         {
-            if (!GameManager.IsPlaying || boss.IsDead) return;
+            // ステージ1の少女だけが自分で片言を繰り返す（ほかのボスは本体が Say を呼ぶ）
+            if (boss == null || !GameManager.IsPlaying || boss.IsDead) return;
             if (!started)
             {
                 started = true;
