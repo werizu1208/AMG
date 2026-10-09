@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/AMG/Scenes/Basecamp.unity
+    guid: 0c0acaca2ef1dfc4f85e715bdb74a917
+  - enabled: 1
     path: Assets/AMG/Scenes/Alpha_Boss1.unity
     guid: c574da0f14235dc4a9fe75dd73f8f190
   - enabled: 1

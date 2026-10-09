@@ -52,6 +52,7 @@ namespace AMG
             if (State != GameState.Playing) return;
             State = GameState.Victory;
             SetCursorLocked(false);
+            GameFlow.OnStageCleared();
         }
 
         void Update()
@@ -60,15 +61,24 @@ namespace AMG
             var mouse = Mouse.current;
             if (kb == null) return;
 
-            if (State == GameState.Playing)
+            switch (State)
             {
-                BattleTime += Time.deltaTime;
-                if (kb.escapeKey.wasPressedThisFrame) SetCursorLocked(false);
-                else if (!CursorLocked && mouse != null && mouse.leftButton.wasPressedThisFrame) SetCursorLocked(true);
-            }
-            else if ((State == GameState.Dead || State == GameState.Victory) && kb.rKey.wasPressedThisFrame)
-            {
-                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+                case GameState.Loadout:
+                    // 出撃前なら拠点へ戻れる
+                    if (kb.bKey.wasPressedThisFrame) GameFlow.GoToBase();
+                    break;
+                case GameState.Playing:
+                    BattleTime += Time.deltaTime;
+                    if (kb.escapeKey.wasPressedThisFrame) SetCursorLocked(false);
+                    // カーソルを解放している間（一時停止のつもりのとき）だけ、B で拠点へ撤退できる
+                    else if (!CursorLocked && kb.bKey.wasPressedThisFrame) GameFlow.GoToBase();
+                    else if (!CursorLocked && mouse != null && mouse.leftButton.wasPressedThisFrame) SetCursorLocked(true);
+                    break;
+                case GameState.Dead:
+                case GameState.Victory:
+                    if (kb.rKey.wasPressedThisFrame) GameFlow.Retry();
+                    else if (kb.bKey.wasPressedThisFrame) GameFlow.GoToBase();
+                    break;
             }
         }
 

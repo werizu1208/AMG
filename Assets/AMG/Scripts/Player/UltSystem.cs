@@ -13,14 +13,14 @@ namespace AMG
         public float baseChargeTime = 90f;
         public float damageForFullCharge = 2500f;
 
-        [Header("① 空気の層")]
+        [Header("① エアバック（空気の層をまとう）")]
         public float airDuration = 10f;
         public float airShield = 60f;
         public float airDamageTaken = 0.6f;
         public float airAuraRadius = 2.6f;
         public float airAuraDps = 35f;
 
-        [Header("② 人類の英知")]
+        [Header("② 潜在能力解放")]
         public float wisdomDuration = 8f;
         public float wisdomDamage = 1.8f;
         public float wisdomFireRate = 1.5f;
@@ -41,7 +41,7 @@ namespace AMG
         float activeTimer;
         float auraTick;
 
-        public static string DisplayName(UltType t) => t == UltType.AirLayer ? "空気の層" : "人類の英知";
+        public static string DisplayName(UltType t) => t == UltType.AirLayer ? "エアバック" : "潜在能力解放";
 
         public static string Description(UltType t) => t == UltType.AirLayer
             ? "人類が唯一、魔法少女に勝利して得た力。\n体に空気の層をまとい、シールド付与・被ダメージ軽減・触れた敵に継続ダメージ。"
@@ -120,7 +120,7 @@ namespace AMG
                 return;
             }
 
-            // 空気の層：範囲内の敵に継続ダメージ（チャージには含めない）
+            // エアバック：範囲内の敵に継続ダメージ（チャージには含めない）
             auraTick -= dt;
             if (auraTick > 0f) return;
             auraTick = 0.25f;

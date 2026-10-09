@@ -119,6 +119,7 @@ namespace AMG
             GUI.Label(new Rect(0, h * 0.08f, w, 80 * S), "対魔法少女殲滅部隊 A・M・G", title);
             if (boss != null) GUI.Label(new Rect(0, h * 0.17f, w, 40 * S), boss.stageTitle, subtitle);
             GUI.Label(new Rect(0, h * 0.25f, w, 40 * S), "ウルトを選択して出撃（クリック または 1 / 2 キー）", center);
+            if (GUI.Button(new Rect(40 * S, h - 90 * S, 260 * S, 56 * S), "[B] 拠点へ戻る", button)) GameFlow.GoToBase();
 
             float bw = 560 * S, bh = 220 * S, gap = 40 * S;
             float x = (w - bw * 2 - gap) * 0.5f, y = h * 0.32f;
@@ -185,7 +186,7 @@ namespace AMG
                 GUI.Label(new Rect(0, h - 190 * s, w, 50 * s), $"「{line}」", subtitle);
 
             if (GameManager.I.State == GameState.Playing && !GameManager.CursorLocked)
-                GUI.Label(new Rect(0, h * 0.4f, w, 40 * s), "クリックで操作に戻る", subtitle);
+                GUI.Label(new Rect(0, h * 0.4f, w, 40 * s), "クリックで操作に戻る　／　B キーで拠点へ撤退", subtitle);
         }
 
         void DrawBoss(float w, float s)
@@ -284,7 +285,9 @@ namespace AMG
             Fill(new Rect(0, 0, w, h), bg);
             GUI.Label(new Rect(0, h * 0.35f, w, 90 * S), head, title);
             GUI.Label(new Rect(0, h * 0.47f, w, 50 * S), body, subtitle);
-            GUI.Label(new Rect(0, h * 0.55f, w, 40 * S), "R キーでリトライ", center);
+            float bw = 300 * S, bh = 64 * S, gap = 30 * S, y = h * 0.58f;
+            if (GUI.Button(new Rect(w * 0.5f - bw - gap * 0.5f, y, bw, bh), "[R] リトライ", button)) GameFlow.Retry();
+            if (GUI.Button(new Rect(w * 0.5f + gap * 0.5f, y, bw, bh), "[B] 拠点へ戻る", button)) GameFlow.GoToBase();
         }
 
         // ---------- 武器・ガジェット（右下） ----------

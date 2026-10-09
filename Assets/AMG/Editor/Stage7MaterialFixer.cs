@@ -30,6 +30,28 @@ namespace AMG.EditorTools
             EditorUtility.DisplayDialog("A・M・G", n > 0 ? $"マテリアルを {n} 個、URP に変換しました。" : "変換が必要なマテリアルはありませんでした。", "OK");
         }
 
+        /// プロジェクト（Assets/AMG）全体から、URP で表示できないマテリアル（Standard・旧式のシェーダー・見つからないシェーダー）を探して変換する
+        [MenuItem("A・M・G/表示できないマテリアルをURPに変換（全体）")]
+        static void FixAllFromMenu()
+        {
+            var fixedNames = new List<string>();
+            foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { "Assets/AMG" }))
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!path.EndsWith(".mat")) continue;
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (mat == null || !IsBroken(mat)) continue;
+                string before = mat.shader != null ? mat.shader.name : "（なし）";
+                Convert(mat, mat);
+                fixedNames.Add($"{path}（{before}）");
+            }
+            AssetDatabase.SaveAssets();
+            foreach (var n in fixedNames) Debug.Log("[A・M・G] URP に変換: " + n);
+            EditorUtility.DisplayDialog("A・M・G", fixedNames.Count > 0
+                ? $"マテリアルを {fixedNames.Count} 個、URP に変換しました（一覧はコンソール）。"
+                : "変換が必要なマテリアルはありませんでした。", "OK");
+        }
+
         /// フォルダ内の .mat を変換する。変換した数を返す
         public static int FixAssets()
         {
@@ -70,8 +92,15 @@ namespace AMG.EditorTools
             }
         }
 
-        static bool IsBroken(Material m) =>
-            m.shader == null || m.shader.name == "Hidden/InternalErrorShader" || !m.shader.isSupported;
+        /// URP では描画されずピンクになるシェーダーか。
+        /// 見つからないシェーダーのほか、Unity 組み込みの Standard や旧式（Legacy など）は、存在はしても URP では使えない
+        static bool IsBroken(Material m)
+        {
+            if (m.shader == null || !m.shader.isSupported) return true;
+            string n = m.shader.name;
+            return n == "Hidden/InternalErrorShader" || n == "Standard" || n == "Standard (Specular setup)" || n == "Autodesk Interactive"
+                || n.StartsWith("Legacy Shaders/") || n.StartsWith("Mobile/") || n.StartsWith("Particles/Standard") || n.StartsWith("Nature/");
+        }
 
         static Material ConvertedCopy(Material src)
         {
@@ -129,6 +158,10 @@ namespace AMG.EditorTools
                 return;
             }
 
+            // 透明系の旧式シェーダー（Legacy Shaders/Transparent/... など）だったものは、URP でも透明にする
+            string oldShader = src.shader != null ? src.shader.name : "";
+            bool transparent = oldShader.Contains("Transparent") || (floats.TryGetValue("_Surface", out var surf) && surf > 0.5f && oldShader.StartsWith("Universal"));
+
             dst.shader = Shader.Find("Universal Render Pipeline/Lit");
             dst.shaderKeywords = new string[0];
 
@@ -161,6 +194,21 @@ namespace AMG.EditorTools
                 dst.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
             }
             else dst.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+
+            if (transparent)
+            {
+                // 色が不透明（アルファ1）のままだと透けないので、ガラスくらいの透け具合にする
+                if (baseColor.a >= 0.99f) baseColor.a = 0.35f;
+                dst.SetColor("_BaseColor", baseColor);
+                dst.SetFloat("_Smoothness", Mathf.Max(dst.GetFloat("_Smoothness"), 0.85f));
+                AlphaSceneBuilder.MakeTransparent(dst);
+            }
+            else
+            {
+                dst.SetFloat("_Surface", 0f);
+                dst.SetOverrideTag("RenderType", "Opaque");
+                dst.renderQueue = -1;
+            }
 
             EditorUtility.SetDirty(dst);
         }

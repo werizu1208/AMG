@@ -126,7 +126,7 @@ namespace AMG.EditorTools
             return mat;
         }
 
-        static void MakeTransparent(Material m)
+        internal static void MakeTransparent(Material m)
         {
             m.SetFloat("_Surface", 1f);
             m.SetFloat("_Blend", 0f);

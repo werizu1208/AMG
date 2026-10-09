@@ -170,3 +170,6 @@ vite.config.ts.timestamp-*
 *.apk
 *.aab
 *.unitypackage
+
+# Blender の自動バックアップ
+*.blend1
