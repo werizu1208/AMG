@@ -88,9 +88,21 @@ namespace AMG.EditorTools
             };
         }
 
+        /// 両方のステージで使う演出用のマテリアル（Materials/Common に置く）
+        static readonly HashSet<string> CommonMats = new HashSet<string> { "Telegraph", "Tracer", "Explosion", "AirLayer", "HumanWisdom", "Grenade" };
+
+        /// マテリアルの置き場所：Common（共通の演出）/ Player / Stage1 / Stage7（名前が Stage7_ で始まるもの）
+        internal static string MatFolder(string name) =>
+            name.StartsWith("Stage7_") ? MatDir + "/Stage7"
+            : name.StartsWith("Player") ? MatDir + "/Player"
+            : CommonMats.Contains(name) ? MatDir + "/Common"
+            : MatDir + "/Stage1";
+
         internal static Material Mat(string name, Color color, bool unlit = false, bool transparent = false, Color? emission = null)
         {
-            string path = $"{MatDir}/{name}.mat";
+            string folder = MatFolder(name);
+            EnsureFolder(folder);
+            string path = $"{folder}/{name}.mat";
             var shader = Shader.Find(unlit ? "Universal Render Pipeline/Unlit" : "Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (mat == null)

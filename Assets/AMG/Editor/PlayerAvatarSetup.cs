@@ -10,7 +10,7 @@ namespace AMG.EditorTools
     public static class PlayerAvatarSetup
     {
         const string ModelDir = "Assets/AMG/Models/Player";
-        const string MatDir = "Assets/AMG/Materials";
+        const string MatDir = "Assets/AMG/Materials/Player";
 
         /// 骨の名前 → モデル（Tools/blender/process_part.py の p_ パーツ）
         static readonly Dictionary<string, string> Models = new Dictionary<string, string>
