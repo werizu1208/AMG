@@ -1,14 +1,9 @@
 fileFormatVersion: 2
-guid: 843e5926f2c7460448f361802251292c
+guid: 1adfc441c253b7343927e37eb95a869e
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects:
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: tripo_material_12b60183-4888-41cc-9f43-b2660e297915
-    second: {fileID: 2100000, guid: cf2fa5f188266cf43bb1f33316cb1818, type: 2}
+  externalObjects: {}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -38,7 +33,7 @@ ModelImporter:
     isReadable: 0
   meshes:
     lODScreenPercentages: []
-    globalScale: 100
+    globalScale: 1
     meshCompression: 0
     addColliders: 0
     useSRGBMaterialColor: 1
